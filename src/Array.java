@@ -116,6 +116,7 @@ public class Array implements DataStructure {
 	@Override
 	public PostingList search(String myString) {
 		myString = myString.replaceAll("\"", " \" ");
+		myString = myString.replaceAll("!", " ! ");
 		String[] strs = myString.split(" ");
 		PostingList result = new PostingList("", new ArrayList<Article>());
 		//Remember
@@ -135,12 +136,12 @@ public class Array implements DataStructure {
 					}
 				}
 				result = not(tmp);
-				i = h + 1;
+				i = h + 1 + 1;
 			}
 			else {
 				PostingList pstList = getDictionary(strs[i+1]);
 				result = not(pstList);
-				i=+1;
+				i=+(1+1);
 			}
 		}
 		else if (strs[i].equals("\"")) {
@@ -155,11 +156,15 @@ public class Array implements DataStructure {
 					h = j;
 				}
 			}
-			i = h + 1;
+			i = h + 1 + 1;
+		}
+		else if (strs[i].equals("")) {
+			i++;
 		}
 		else {
 			PostingList pstList = getDictionary(strs[i]);
 			result =  pstList;
+			i++;
 		}
 		//Remember
 		for (; i < strs.length ; i++) {
@@ -200,6 +205,8 @@ public class Array implements DataStructure {
 					}
 				}
 				i = h + 1;
+			}
+			else if (strs[i].equals("")) {
 			}
 			else {
 				PostingList pstList = getDictionary(strs[i]);
@@ -274,7 +281,6 @@ public class Array implements DataStructure {
 
 	@Override
 	public PostingList not(PostingList postingList) {
-		numberOfRows = 50;
 //		PostingList postingList = getDictionary(word);
 		PostingList newPostingList = new PostingList("", new ArrayList<Article>());
 		for (int j = 1; j < postingList.articles.get(0).articleNumber ; j++) {		//from 1st article till [0] article
