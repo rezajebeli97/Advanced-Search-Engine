@@ -115,14 +115,106 @@ public class Array implements DataStructure {
 
 	@Override
 	public PostingList search(String myString) {
-		// TODO Auto-generated method stub
-		return null;
+		myString = myString.replaceAll("\"", " \" ");
+		String[] strs = myString.split(" ");
+		PostingList result = new PostingList("", new ArrayList<Article>());
+		//Remember
+		int i = 0;
+		if (strs[i].equals("!")) {
+			if (strs[i+1].equals("\"")) {
+				int h = 0;
+				PostingList tmp = new PostingList("", new ArrayList<Article>());
+				for (int j = i+2; j < strs.length; j++) {
+					if (strs[j].equals("\"")) {
+						PostingList[] pstList = new PostingList[j - i - 2];
+						for (int k = 0; k < pstList.length; k++) {
+							pstList[k] = getDictionary(strs[k + i + 2]);
+						}
+						tmp = neighbourhood(pstList);
+						h = j;
+					}
+				}
+				result = not(tmp);
+				i = h + 1;
+			}
+			else {
+				PostingList pstList = getDictionary(strs[i+1]);
+				result = not(pstList);
+				i=+1;
+			}
+		}
+		else if (strs[i].equals("\"")) {
+			int h = 0;
+			for (int j = i+1; j < strs.length; j++) {
+				if (strs[j].equals("\"")) {
+					PostingList[] pstList = new PostingList[j - i - 1];
+					for (int k = 0; k < pstList.length; k++) {
+						pstList[k] = getDictionary(strs[k + i + 1]);
+					}
+					result = neighbourhood(pstList);
+					h = j;
+				}
+			}
+			i = h + 1;
+		}
+		else {
+			PostingList pstList = getDictionary(strs[i]);
+			result =  pstList;
+		}
+		//Remember
+		for (; i < strs.length ; i++) {
+			if (strs[i].equals("!")) {
+				if (strs[i+1].equals("\"")) {
+					int h = 0;
+					PostingList tmp = new PostingList("", new ArrayList<Article>());
+					for (int j = i+2; j < strs.length; j++) {
+						if (strs[j].equals("\"")) {
+							PostingList[] pstList = new PostingList[j - i - 2];
+							for (int k = 0; k < pstList.length; k++) {
+								pstList[k] = getDictionary(strs[k + i + 2]);
+							}
+							tmp = neighbourhood(pstList);
+							h = j;
+							break;
+						}
+					}
+					result = interSection( result, not(tmp));
+					i = h + 1;
+				}
+				else {
+					PostingList pstList = getDictionary(strs[i+1]);
+					result = interSection( result, not(pstList));
+					i=+1;
+				}
+			}
+			else if (strs[i].equals("\"")) {
+				int h = 0;
+				for (int j = i+1; j < strs.length; j++) {
+					if (strs[j].equals("\"")) {
+						PostingList[] pstList = new PostingList[j - i - 1];
+						for (int k = 0; k < pstList.length; k++) {
+							pstList[k] = getDictionary(strs[k + i + 1]);
+						}
+						result = interSection(result, neighbourhood(pstList));
+						h = j;
+					}
+				}
+				i = h + 1;
+			}
+			else {
+				PostingList pstList = getDictionary(strs[i]);
+				result = interSection(result, pstList);
+			}
+			
+		}
+		
+		return result;
 	}
 
 	@Override
-	public PostingList interSection(String word1, String word2) {
-		PostingList postingList1 = getDictionary(word1);
-		PostingList postingList2 = getDictionary(word2);
+	public PostingList interSection(PostingList postingList1, PostingList postingList2) {
+//		PostingList postingList1 = getDictionary(word1);
+//		PostingList postingList2 = getDictionary(word2);
 		PostingList newPostingList = new PostingList("", new ArrayList<Article>());
 		if (postingList1 == null || postingList2 == null)
 			return null;
@@ -153,27 +245,50 @@ public class Array implements DataStructure {
 	}
 
 	@Override
-	public PostingList neighbourhood(String word1, String word2) {
-		// TODO Auto-generated method stub
-		return null;
-	}
+	public PostingList neighbourhood(PostingList[] pls) {
+//	    PostingList[] pls = new PostingList[words.length];
+//	    for (int i = 0; i < pls.length; i++) {
+//	      pls[i] = getDictionary(words[i]);
+//	    }
+	    PostingList result = new  PostingList("", new ArrayList<Article>());
+	    for (int i = 0; i < pls[0].articles.size(); i++) {
+	      for (int j = 0; j < pls[0].articles.get(i).positions.size(); j++) {
+	        boolean t = true;
+	        for (int k = 1; k < pls.length; k++) {
+	          Article artc = getArticle(pls[k], pls[0].articles.get(i).articleNumber);
+	          if (artc != null) {
+	            if(articleContains(artc, pls[0].articles.get(i).positions.get(j)+k)) {
+	              if(k == pls.length-1) {
+	                if(result.articles.size() == 0 || result.articles.get(result.articles.size() - 1).articleNumber != i)
+	                  result.articles.add(new Article(pls[0].articles.get(i).articleNumber, new ArrayList<Integer>()));
+	                result.articles.get(result.articles.size()-1).positions.add(pls[0].articles.get(i).positions.get(j));
+	              }
+	            } else break;
+	          } else {t = false; break;}
+	        }
+	        if (!t) break;
+	      }
+	    }
+	    return result;
+	  }
 
 	@Override
-	public PostingList not(String word) {
-		PostingList postingList = getDictionary(word);
+	public PostingList not(PostingList postingList) {
+		numberOfRows = 50;
+//		PostingList postingList = getDictionary(word);
 		PostingList newPostingList = new PostingList("", new ArrayList<Article>());
 		for (int j = 1; j < postingList.articles.get(0).articleNumber ; j++) {		//from 1st article till [0] article
-			Article article = new Article(j, null);
+			Article article = new Article(j, new ArrayList<Integer>());
 			newPostingList.articles.add(article);
 		}
 		for (int i = 1 ; i < postingList.articles.size(); i++ ) {
 			for (int j = postingList.articles.get(i-1).articleNumber + 1 ; j < postingList.articles.get(i).articleNumber ; j++) {
-				Article article = new Article(j, null);
+				Article article = new Article(j, new ArrayList<Integer>());
 				newPostingList.articles.add(article);
 			}
 		}
 		for (int j = postingList.articles.get(postingList.articles.size()-1).articleNumber + 1 ; j <= numberOfRows ; j++) {		//from [last] article ill the last article
-			Article article = new Article(j, null);
+			Article article = new Article(j, new ArrayList<Integer>());
 			newPostingList.articles.add(article);
 		}
 		return newPostingList;

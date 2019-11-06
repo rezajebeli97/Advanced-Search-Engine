@@ -37,6 +37,7 @@ public class Main {
 		array.addWord("رضا", 3, 6);
 		array.addWord("رضا", 3, 7);
 		
-		array.not("علی");
+		array.search("!\"علی رضا\"");
+		
 	}
 }
