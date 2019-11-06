@@ -13,6 +13,7 @@ import jhazm.Normalizer;
 import jhazm.tokenizer.WordTokenizer;
 
 public class Array implements DataStructure {
+	public int numberOfRows;
 	ArrayList<PostingList> dictionary = new ArrayList<PostingList>();
 
 	@Override
@@ -25,16 +26,15 @@ public class Array implements DataStructure {
 			HSSFRow row;
 			HSSFCell cell;
 
-			int rows; // No of rows
-			rows = sheet.getPhysicalNumberOfRows();
-			System.out.println(rows);
+			int numberOfRows = sheet.getPhysicalNumberOfRows(); // No of rows
+			System.out.println(numberOfRows);
 
 			int cols = 0; // No of columns
 			int tmp = 0;
 
 			// This trick ensures that we get the data properly even if it doesn't start
 			// from first few rows
-			for (int i = 0; i < 10 || i < rows; i++) {
+			for (int i = 0; i < 10 || i < numberOfRows; i++) {
 				row = sheet.getRow(i);
 				if (row != null) {
 					tmp = sheet.getRow(i).getPhysicalNumberOfCells();
@@ -43,7 +43,7 @@ public class Array implements DataStructure {
 				}
 			}
 
-			for (int r = 1; r < /* rows */3; r++) {
+			for (int r = 1; r < /* numberOfRows */3; r++) {
 				int position = 0;
 				row = sheet.getRow(r);
 				if (row != null) {
@@ -70,7 +70,7 @@ public class Array implements DataStructure {
 		}
 	}
 
-	private void addWord(String word, int articleNumber, int position) {
+	public void addWord(String word, int articleNumber, int position) {
 		PostingList postingList = getDictionary(word);
 		if (postingList == null) {
 			ArrayList<Integer> positions = new ArrayList<Integer>();
@@ -78,7 +78,7 @@ public class Array implements DataStructure {
 			ArrayList<Article> articles = new ArrayList<Article>();
 			Article article = new Article(articleNumber, positions);
 			articles.add(article);
-			PostingList newPstList = new PostingList(word, 1, articles);
+			PostingList newPstList = new PostingList(word, articles);
 			dictionary.add(newPstList);
 		} else {
 			Article article = getArticle(postingList, articleNumber);
@@ -87,7 +87,6 @@ public class Array implements DataStructure {
 				positions.add(position);
 				Article newArticle = new Article(articleNumber, positions);
 				postingList.articles.add(newArticle);
-				postingList.numberOfArticles++;
 			} else if (!articleContains(article, position))
 				article.positions.add(position);
 		}
@@ -122,8 +121,35 @@ public class Array implements DataStructure {
 
 	@Override
 	public PostingList interSection(String word1, String word2) {
-		
-		return null;
+		PostingList postingList1 = getDictionary(word1);
+		PostingList postingList2 = getDictionary(word2);
+		PostingList newPostingList = new PostingList("", new ArrayList<Article>());
+		if (postingList1 == null || postingList2 == null)
+			return null;
+
+		int x = 0;
+		int y = 0;
+		while (x < postingList1.articles.size() && y < postingList2.articles.size()) {
+			Article article1 = postingList1.articles.get(x);
+			Article article2 = postingList2.articles.get(y);
+			if (article1.articleNumber == article2.articleNumber) {
+				ArrayList<Integer> newPositions = new ArrayList<Integer>();
+				for (Integer integer : article1.positions)
+					newPositions.add(integer);
+				for (Integer integer : article2.positions)
+					newPositions.add(integer);
+
+				Article article = new Article(article1.articleNumber, newPositions);
+				newPostingList.articles.add(article);
+				x++;
+				y++;
+			} else if (article1.articleNumber < article2.articleNumber)
+				x++;
+			else
+				y++;
+
+		}
+		return newPostingList;
 	}
 
 	@Override
@@ -134,8 +160,23 @@ public class Array implements DataStructure {
 
 	@Override
 	public PostingList not(String word) {
-		// TODO Auto-generated method stub
-		return null;
+		PostingList postingList = getDictionary(word);
+		PostingList newPostingList = new PostingList("", new ArrayList<Article>());
+		for (int j = 1; j < postingList.articles.get(0).articleNumber ; j++) {		//from 1st article till [0] article
+			Article article = new Article(j, null);
+			newPostingList.articles.add(article);
+		}
+		for (int i = 1 ; i < postingList.articles.size(); i++ ) {
+			for (int j = postingList.articles.get(i-1).articleNumber + 1 ; j < postingList.articles.get(i).articleNumber ; j++) {
+				Article article = new Article(j, null);
+				newPostingList.articles.add(article);
+			}
+		}
+		for (int j = postingList.articles.get(postingList.articles.size()-1).articleNumber + 1 ; j <= numberOfRows ; j++) {		//from [last] article ill the last article
+			Article article = new Article(j, null);
+			newPostingList.articles.add(article);
+		}
+		return newPostingList;
 	}
 
 }

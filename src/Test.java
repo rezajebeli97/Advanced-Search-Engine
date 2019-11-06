@@ -1,39 +1,25 @@
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 import jhazm.*;
 import jhazm.tokenizer.WordTokenizer;
 
 public class Test {
-	public static void main(String[] args) throws IOException {
+	public static void main(String[] args) {
 		
+		ArrayList<Integer> a1 = new ArrayList<Integer>();
+		a1.add(2);
+		a1.add(3);
+		a1.add(4);
 		
-		Normalizer n = new Normalizer(true, true, true);
-		String str1 = n.run("");
-		System.out.println(str1);
+		ArrayList<Integer> a2 = new ArrayList<Integer>();
+		a2.add(6);
+		a2.add(7);
+		a2.add(8);
 		
-		WordTokenizer wrdt = new WordTokenizer();
-		List<String> strs = wrdt.tokenize(str1);
-		for (String s : strs) {
-			System.out.println(s);
-		}
+		a1.addAll(a2);
 		
-		for (String s : strs) {
-			System.out.println(s);
-			
-			Lemmatizer l = new Lemmatizer();
-			String y = l.lemmatize(s);
-			System.out.println(y);
-			
-			Stemmer stm = new Stemmer();
-			String x = stm.stem(y);
-			System.out.println(x);
-			
-			
-			
-			System.out.println();
-		}
-		
-		
+		System.out.println(a2.size());
 	}
 }
