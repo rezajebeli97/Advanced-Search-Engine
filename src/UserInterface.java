@@ -30,7 +30,7 @@ public class UserInterface extends JFrame{
 		getContentPane().add(text);
 
 		JTextField queryField = new JTextField();
-		queryField.setFont(new Font("font", queryField.getFont().getStyle(), 12));
+		queryField.setFont(new Font("tahoma", queryField.getFont().getStyle(), 12));
 		queryField.setLocation(20, 45);
 		queryField.setSize(400, 27);
 		getContentPane().add(queryField);
@@ -76,7 +76,7 @@ public class UserInterface extends JFrame{
 	static Array array = new Array();
 	
 	public static void main(String[] args) {
-		array.build(new File("IR-F19-Project01-Input.xls"), null, null, null);
+		array.build(new File("News.xls"), null, null, null);
 		new UserInterface();
 	}
 }

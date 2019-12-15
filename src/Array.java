@@ -20,13 +20,13 @@ public class Array implements DataStructure {
 	public void build(File mainFile, File stopWordsFile, File stemFile, File standardFile) {
 		try {
 
-			POIFSFileSystem fs = new POIFSFileSystem(new FileInputStream(new File("IR-F19-Project01-Input.xls")));
+			POIFSFileSystem fs = new POIFSFileSystem(new FileInputStream(mainFile));
 			HSSFWorkbook wb = new HSSFWorkbook(fs);
 			HSSFSheet sheet = wb.getSheetAt(0);
 			HSSFRow row;
 			HSSFCell cell;
 
-			int numberOfRows = sheet.getPhysicalNumberOfRows(); // No of rows
+			numberOfRows = sheet.getPhysicalNumberOfRows(); // No of rows
 			System.out.println(numberOfRows);
 
 			int cols = 0; // No of columns
@@ -43,7 +43,7 @@ public class Array implements DataStructure {
 				}
 			}
 
-			for (int r = 1; r < /* numberOfRows */3; r++) {
+			for (int r = 1; r < /* numberOfDocs */3; r++) {
 				int position = 0;
 				row = sheet.getRow(r);
 				if (row != null) {
