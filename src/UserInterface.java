@@ -76,11 +76,11 @@ public class UserInterface extends JFrame {
 
 		setVisible(true);
 	}
-
+	
 	static Array array = new Array();
 
 	public static void main(String[] args) {
-		array.build(new File("News/IR-F19-Project01-Input.xls"), null, null, null);
+		array.build(new File("News/IR-F19-Project01-Input.xls"), new File("News/stopWords.txt"), new File("News/hamsanSaz.txt"), new File("News/tarkibi_porkarbord.txt"));
 		new UserInterface();
 	}
 }

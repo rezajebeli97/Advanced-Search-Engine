@@ -1,0 +1,36 @@
+<meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
+<html>
+<head>
+    <title>گل جفلی</title>
+</head>
+<body>
+<h2>در گل جفلی پیدا کنید</h2>
+<input id="name" name="name" placeholder="متن خود را وارد کنید" dir="rtl" onkeypress="return runScript(event)"/>
+<button onClick="postJSON()">submit</button>
+<div id="result"></div>
+<script>
+    function runScript(e) {
+        //See notes about 'which' and 'key'
+        if (e.keyCode == 13) {
+            postJSON();
+        }
+    }
+    function postJSON() {
+        var name = document.querySelector("#name").value;
+        var body = {name: name};
+        fetch("/json", {
+            method: "post",
+            headers: {
+                'Accept': 'application/json, text/plain, */*',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(body)
+        }).then(function (response) {
+            return response.text()
+        }).then(function (html) {
+        document.querySelector("#result").innerHTML = html;
+        });
+    }
+</script>
+</body>
+</html>
