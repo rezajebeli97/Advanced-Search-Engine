@@ -1,5 +1,6 @@
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.poi.hssf.usermodel.HSSFCell;
@@ -7,6 +8,7 @@ import org.apache.poi.hssf.usermodel.HSSFRow;
 import org.apache.poi.hssf.usermodel.HSSFSheet;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.poifs.filesystem.POIFSFileSystem;
+import org.jsoup.Jsoup;
 
 import jhazm.Lemmatizer;
 import jhazm.Normalizer;
@@ -43,22 +45,28 @@ public class Array implements DataStructure {
 				}
 			}
 
-			for (int r = 1; r < /* numberOfDocs */3; r++) {
-				int position = 0;
+			for (int r = 1; r <  numberOfRows ; r++) {
 				row = sheet.getRow(r);
 				if (row != null) {
 					int c = 5; // choosing content column // for (int c = 0; c < cols; c++) {
 					cell = row.getCell((short) c);
 
 					if (cell != null) {
-						Normalizer normal = new Normalizer(true, true, true);
-						String str1 = normal.run(cell.getRichStringCellValue().getString());
-						WordTokenizer tokenize = new WordTokenizer();
-						List<String> strs = tokenize.tokenize(str1);
-
-						Lemmatizer lemmatize = new Lemmatizer();
-						for (String s : strs) {
-							String word = lemmatize.lemmatize(s);
+						int position = 0;
+						String rawText = cell.getRichStringCellValue().getString();
+						String noTag = Jsoup.parse(rawText).text();
+						
+						String noPunctuationTemp = noTag.replaceAll("\\p{Punct}", "");
+						
+						String noPunctuation = noPunctuationTemp.replaceAll("،", "");
+						
+						String normalized = new Normalizer().run(noPunctuation);
+						
+						List<String> tokens = new WordTokenizer().tokenize(normalized);
+						
+						Lemmatizer lematizer = new Lemmatizer();  
+						for (String s : tokens) {
+							String word = lematizer.lemmatize(s);
 							addWord(word, r, position);
 							position++;
 						}
@@ -68,6 +76,7 @@ public class Array implements DataStructure {
 		} catch (Exception ioe) {
 			ioe.printStackTrace();
 		}
+		System.out.println(dictionary.size());
 	}
 
 	public void addWord(String word, int articleNumber, int position) {
@@ -117,10 +126,42 @@ public class Array implements DataStructure {
 	public PostingList search(String myString) {
 		myString = myString.replaceAll("\"", " \" ");
 		myString = myString.replaceAll("!", " ! ");
-		String[] strs = myString.split(" ");
+		
+		Normalizer normal = new Normalizer(true, true, true);
+		String str1 = normal.run(myString);
+
+		String[] strs_basic = myString.split(" ");
+		int z = 0;
+		for (int i = 0; i < strs_basic.length; i++) {
+			if(!strs_basic[i].equals("")) {
+				strs_basic[z] = strs_basic[i];
+				z++;
+			}
+		}
+		
+		String[] strs = new String[z];
+		for (int i = 0; i < z; i++) {
+			strs[i] = strs_basic[i];
+		}
+		
+		Lemmatizer lemmatize = null;
+		try {
+			lemmatize = new Lemmatizer();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		for (int i = 0; i< strs.length; i++) {
+			strs[i] = lemmatize.lemmatize(strs[i]);
+		}
+		
 		PostingList result = new PostingList("", new ArrayList<Article>());
 		//Remember
 		int i = 0;
+		
+		if (strs[0].equals("")) {
+			i++;
+		}
 		if (strs[i].equals("!")) {
 			if (strs[i+1].equals("\"")) {
 				int h = 0;
@@ -166,7 +207,7 @@ public class Array implements DataStructure {
 			result =  pstList;
 			i++;
 		}
-		//Remember
+		
 		for (; i < strs.length ; i++) {
 			if (strs[i].equals("!")) {
 				if (strs[i+1].equals("\"")) {

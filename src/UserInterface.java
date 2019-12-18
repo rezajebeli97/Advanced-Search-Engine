@@ -13,7 +13,7 @@ import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.ScrollPaneConstants;
 
-public class UserInterface extends JFrame{
+public class UserInterface extends JFrame {
 
 	public UserInterface() {
 		setSize(680, 600);
@@ -34,7 +34,7 @@ public class UserInterface extends JFrame{
 		queryField.setLocation(20, 45);
 		queryField.setSize(400, 27);
 		getContentPane().add(queryField);
-		
+
 		JTextArea textArea = new JTextArea();
 		textArea.setFont(new Font("font", queryField.getFont().getStyle(), 11));
 		textArea.setLocation(10, 100);
@@ -48,7 +48,7 @@ public class UserInterface extends JFrame{
 		scroll.setBounds(10, 100, 660, 350);
 		scroll.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
 		getContentPane().add(scroll);
-		
+
 		JButton browseButton = new JButton("Search");
 		browseButton.setLocation(445, 45);
 		browseButton.setSize(100, 27);
@@ -59,24 +59,28 @@ public class UserInterface extends JFrame{
 			public void actionPerformed(ActionEvent e) {
 				System.out.println(queryField.getText());
 				PostingList postingList = array.search(queryField.getText());
-				textArea.setText(postingList.articles.size() + " articles found!\nArticles:\n");
-				for (Article article : postingList.articles) {
-					textArea.setText(textArea.getText() + "["+ article.articleNumber +"]: ");
-					for (int index : article.positions) {
-						textArea.setText(textArea.getText() + index + " " );
+				if (postingList == null) {
+					textArea.setText("not found!\nArticles:\n");
+				} else {
+					textArea.setText(postingList.articles.size() + " articles found!\nArticles:\n");
+					for (Article article : postingList.articles) {
+						textArea.setText(textArea.getText() + "[" + article.articleNumber + "]: ");
+						for (int index : article.positions) {
+							textArea.setText(textArea.getText() + index + " ");
+						}
+						textArea.setText(textArea.getText() + "\n");
 					}
-					textArea.setText(textArea.getText() + "\n");
 				}
 			}
 		});
-		
+
 		setVisible(true);
 	}
-	
+
 	static Array array = new Array();
-	
+
 	public static void main(String[] args) {
-		array.build(new File("News.xls"), null, null, null);
+		array.build(new File("News/IR-F19-Project01-Input.xls"), null, null, null);
 		new UserInterface();
 	}
 }
