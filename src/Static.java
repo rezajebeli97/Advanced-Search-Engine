@@ -23,4 +23,5 @@ public class Static {
 	}
 	
 	public static boolean rankedSearch = true;
+	public static int weightingScheme = 3;	//3=normal
 }

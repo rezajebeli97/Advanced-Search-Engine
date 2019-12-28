@@ -377,7 +377,7 @@ public class Array implements DataStructure {
 						if (articleContains(artc, pls[0].articles.get(i).positions.get(j) + k)) {
 							if (k == pls.length - 1) {
 								if (result.articles.size() == 0
-										|| result.articles.get(result.articles.size() - 1).articleNumber != i)
+										|| result.articles.get(result.articles.size() - 1).articleNumber != pls[0].articles.get(i).articleNumber)
 									result.articles.add(new Article(pls[0].articles.get(i).articleNumber,
 											new ArrayList<Integer>()));
 								result.articles.get(result.articles.size() - 1).positions

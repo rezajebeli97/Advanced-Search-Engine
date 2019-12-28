@@ -29,6 +29,7 @@ public class RankedSearch implements DataStructure {
 	float[][] tfidfVectors;
 	int[] nt; // how many docs contain word t?
 	int selectedNumber = 100;
+	ArrayList<String> strings = new ArrayList<String>();
 
 	@Override
 	public void build(File mainFile, File stopWordsFile, File hamsansazFile, File tarkibiPorkarbordFile) {
@@ -161,7 +162,18 @@ public class RankedSearch implements DataStructure {
 				for (int j = 0; j < vectors[0].length; j++) {
 					if (vectors[i][j] == 0)
 						continue;
-					tfidfVectors[i][j] = (float) ((1 + Math.log10(vectors[i][j])) * Math.log10((numberOfDocs) / nt[j]));
+					switch (Static.weightingScheme) {
+					case 1:
+						tfidfVectors[i][j] = (float) (vectors[i][j] * Math.log10((numberOfDocs) / nt[j]));
+						break;
+					case 2:
+						tfidfVectors[i][j] = (float) (1 + Math.log10(vectors[i][j]));
+						break;
+					case 3:
+						tfidfVectors[i][j] = (float) ((1 + Math.log10(vectors[i][j])) * Math.log10((numberOfDocs) / nt[j]));
+						break;
+					}
+					
 				}
 			}
 
@@ -172,6 +184,15 @@ public class RankedSearch implements DataStructure {
 
 	}
 
+	private void zipfLaw() {
+		MaxHeapInt maxHeap = new MaxHeapInt(nt);
+		int[] res = maxHeap.heapSort(nt.length);
+
+		for (int i : res) {
+			System.out.println(i);
+		}
+	}
+
 	private void updateNt(int articleIndex) {
 		for (int i = 0; i < nt.length; i++) {
 			if (vectors[articleIndex][i] != 0) {
@@ -179,8 +200,6 @@ public class RankedSearch implements DataStructure {
 			}
 		}
 	}
-
-	
 
 	@Override
 	public PostingList search(String myString) {
@@ -194,9 +213,9 @@ public class RankedSearch implements DataStructure {
 		}
 
 		PostingList postingList = search3(myString);
-		
+
 		return rankArticles(myString, postingList.articles);
-		
+
 	}
 
 	public PostingList search3(String myString) {
@@ -235,7 +254,7 @@ public class RankedSearch implements DataStructure {
 		return result;
 
 	}
-	
+
 	public PostingList rankArticles(String myString, ArrayList<Article> articles) {
 		System.out.println(myString);
 
@@ -248,7 +267,7 @@ public class RankedSearch implements DataStructure {
 
 		String[] strs = tokenizeRanked(myString);
 
-		//Lemmatize
+		// Lemmatize
 		try {
 			Lemmatizer lemmatize = new Lemmatizer();
 			for (int i = 0; i < strs.length; i++) {
@@ -270,12 +289,27 @@ public class RankedSearch implements DataStructure {
 		for (int j = 0; j < map.size(); j++) {
 			if (queryVector[j] == 0)
 				continue;
-			queryTfidfVector[j] = (float) ((1 + Math.log10(queryVector[j])) * Math.log10((numberOfDocs) / nt[j]));
+			switch (Static.weightingScheme) {
+			case 1:
+				float max = 0;
+				for (float q : queryVector) {
+					max = Math.max(max, q);
+				}
+				queryTfidfVector[j] = (float) ((0.5 + queryVector[j]/(2 * max)) * Math.log10((numberOfDocs) / nt[j]));
+				break;
+			case 2:
+				queryTfidfVector[j] = (float) Math.log10(1 + (numberOfDocs) / nt[j]);
+				break;
+			case 3:
+				queryTfidfVector[j] = (float) ((1 + Math.log10(queryVector[j])) * Math.log10((numberOfDocs) / nt[j]));
+				break;
+			}
+			
 		}
 
 		float[] similarity = new float[articles.size()];
 		for (int i = 0; i < articles.size(); i++) {
-			//check articles[i].articleNumber - 1
+			// check articles[i].articleNumber - 1
 			float[] tfidfVector = tfidfVectors[articles.get(i).articleNumber - 1];
 			float tmp = 0;
 			for (int j = 0; j < tfidfVector.length; j++) {
@@ -288,14 +322,15 @@ public class RankedSearch implements DataStructure {
 		}
 
 		MaxHeap maxHeap = new MaxHeap(similarity);
-		int[] sortedArticlesIndexes = maxHeap.heapSort(selectedNumber); // this returns article indexes from 0 to similarity.length - 1
-		
+		int[] sortedArticlesIndexes = maxHeap.heapSort(selectedNumber); // this returns article indexes from 0 to
+																		// similarity.length - 1
+
 		ArrayList<Article> sortedArticles = new ArrayList<>();
-		
+
 		for (int i : sortedArticlesIndexes) {
 			sortedArticles.add(articles.get(i));
 		}
-		
+
 		return new PostingList("", sortedArticles);
 	}
 
@@ -318,6 +353,7 @@ public class RankedSearch implements DataStructure {
 	private void addWord(String word, int articleNumber, int position) {
 		if (map.get(word) == null) {
 			map.put(word, map.size());
+			strings.add(word);
 		}
 		PostingList postingList = getDictionary(word);
 		if (postingList == null) {
@@ -488,7 +524,7 @@ public class RankedSearch implements DataStructure {
 		}
 		return tokens_arr;
 	}
-	
+
 	public String[] tokenizeRanked(String myString) {
 		ArrayList<String> tokens = new ArrayList<>();
 		for (int i = 0; i < myString.length();) {
@@ -497,7 +533,7 @@ public class RankedSearch implements DataStructure {
 				int j = i + 1;
 				while (j < myString.length() && myString.charAt(j) != '"') {
 					if (myString.charAt(j) == ' ') {
-						tokens.add(myString.substring(i+1, j));
+						tokens.add(myString.substring(i + 1, j));
 						i = j;
 					}
 					j++;
@@ -594,8 +630,8 @@ public class RankedSearch implements DataStructure {
 					if (artc != null) {
 						if (articleContains(artc, pls[0].articles.get(i).positions.get(j) + k)) {
 							if (k == pls.length - 1) {
-								if (result.articles.size() == 0
-										|| result.articles.get(result.articles.size() - 1).articleNumber != i)
+								if (result.articles.size() == 0 || result.articles.get(result.articles.size()
+										- 1).articleNumber != pls[0].articles.get(i).articleNumber)
 									result.articles.add(new Article(pls[0].articles.get(i).articleNumber,
 											new ArrayList<Integer>()));
 								result.articles.get(result.articles.size() - 1).positions
