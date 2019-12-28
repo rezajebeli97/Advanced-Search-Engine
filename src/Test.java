@@ -6,20 +6,24 @@ import jhazm.*;
 import jhazm.tokenizer.WordTokenizer;
 
 public class Test {
-	public static void main(String[] args) {
+	public static void main(String[] args) throws IOException {
+		Test t = new Test();
+		String myString = "من کتابی را خریدم";
+		System.out.println(myString);
+
+		Normalizer normalizer = new Normalizer(true, false, true);
+		myString = normalizer.run(myString);
 		
-		ArrayList<Integer> a1 = new ArrayList<Integer>();
-		a1.add(2);
-		a1.add(3);
-		a1.add(4);
+		myString = new Stemmer().stem(myString);
+		System.out.println(myString);
 		
-		ArrayList<Integer> a2 = new ArrayList<Integer>();
-		a2.add(6);
-		a2.add(7);
-		a2.add(8);
+		List<String> strs = new WordTokenizer().tokenize(myString);
 		
-		a1.addAll(a2);
-		
-		System.out.println(a2.size());
+		Lemmatizer l = new Lemmatizer();
+		for (String string : strs) {
+			System.out.println(l.lemmatize(string));
+		}
 	}
+
+	
 }

@@ -3,12 +3,12 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Scanner;
 
 import org.apache.poi.hssf.usermodel.HSSFCell;
 import org.apache.poi.hssf.usermodel.HSSFRow;
-import org.apache.poi.hssf.usermodel.HSSFSheet;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.poifs.filesystem.POIFSFileSystem;
 import org.jsoup.Jsoup;
@@ -17,54 +17,27 @@ import jhazm.Lemmatizer;
 import jhazm.Normalizer;
 import jhazm.tokenizer.WordTokenizer;
 
-public class Array implements DataStructure {
+public class RankedSearch implements DataStructure {
 	public int numberOfRows;
+	public int numberOfDocs;
 	ArrayList<PostingList> dictionary = new ArrayList<PostingList>();
+	HashMap<String, Integer> map = new HashMap<>();
 	ArrayList<String> stopWords = new ArrayList<String>();
 	ArrayList<String> correctHamsansaz = new ArrayList<String>();
 	ArrayList<String> wrongHamsansaz = new ArrayList<String>();
+	int[][] vectors;
+	float[][] tfidfVectors;
+	int[] nt; // how many docs contain word t?
+	int selectedNumber = 100;
 
 	@Override
 	public void build(File mainFile, File stopWordsFile, File hamsansazFile, File tarkibiPorkarbordFile) {
 
-		// generating stopwords array
-		try {
-			Scanner scr = new Scanner(stopWordsFile);
-			while (scr.hasNextLine()) {
-				String stopWord = scr.nextLine();
-				stopWords.add(stopWord);
-			}
-		} catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+		generateStopWords(stopWordsFile);
 
-		// generating همسان ساز array. I supposed hamsansaz is for 2 words
-		try {
-			Scanner scr = new Scanner(hamsansazFile);
-			while (scr.hasNextLine()) {
-				String hamsan = scr.nextLine();
-				String[] hamsans = hamsan.split(" ");
-				correctHamsansaz.add(hamsans[0]);
-				wrongHamsansaz.add(hamsans[1]);
-			}
-		} catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+		generateHamsanSazWords(hamsansazFile);
 
-		// generating tarkibiPorkarbord array
-		Static.tarkibiPorkarbord = new ArrayList<String>();
-		try {
-			Scanner scr = new Scanner(tarkibiPorkarbordFile);
-			while (scr.hasNextLine()) {
-				String tarkibi = scr.nextLine();
-				Static.tarkibiPorkarbord.add(tarkibi);
-			}
-		} catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+		generateTarkibiPorkarbordWords(tarkibiPorkarbordFile);
 
 		try {
 
@@ -75,7 +48,8 @@ public class Array implements DataStructure {
 			HSSFCell cell;
 
 			numberOfRows = Static.sheet.getPhysicalNumberOfRows(); // No of rows
-			System.out.println(numberOfRows);
+			numberOfDocs = numberOfRows - 1;
+			System.out.println(numberOfDocs);
 
 			int cols = 0; // No of columns
 			int tmp = 0;
@@ -136,70 +110,95 @@ public class Array implements DataStructure {
 					}
 				}
 			}
+
+			System.out.println(map.size());
+
+			vectors = new int[numberOfDocs][map.size()];
+			nt = new int[map.size()];
+
+			for (int r = 1; r < numberOfRows; r++) {
+				row = Static.sheet.getRow(r);
+				if (row != null) {
+					int c = 5; // choosing content column // for (int c = 0; c < cols; c++) {
+					cell = row.getCell((short) c);
+
+					if (cell != null) {
+						String rawText = cell.getRichStringCellValue().getString();
+						String noTag = Jsoup.parse(rawText).text();
+
+						String noPunctuationTemp = noTag.replaceAll("\\p{Punct}", "");
+
+						String noPunctuation = noPunctuationTemp.replaceAll("،", "");
+
+						String normalized = normalizer.run(noPunctuation);
+
+						// converting tarkibiPorkarbord words into it's common shape
+						for (String s : Static.tarkibiPorkarbord) {
+							noPunctuation = noPunctuation.replaceAll(s, s.replace(" ", ""));
+						}
+
+						List<String> tokens = tokenizer.tokenize(normalized);
+
+						for (String s : tokens) {
+							String word = lemmatizer.lemmatize(s);
+							// stopword
+							if (stopWords.contains(word))
+								continue;
+							// همسان ساز
+							if (wrongHamsansaz.contains(word)) {
+								word = correctHamsansaz.get(wrongHamsansaz.indexOf(word));
+							}
+							updateVector(r - 1, word);
+						}
+						updateNt(r - 1);
+					}
+				}
+			}
+
+			// generating tfidf
+			tfidfVectors = new float[numberOfDocs][map.size()];
+			for (int i = 0; i < vectors.length; i++) {
+				for (int j = 0; j < vectors[0].length; j++) {
+					if (vectors[i][j] == 0)
+						continue;
+					tfidfVectors[i][j] = (float) ((1 + Math.log10(vectors[i][j])) * Math.log10((numberOfDocs) / nt[j]));
+				}
+			}
+
 		} catch (Exception ioe) {
 			ioe.printStackTrace();
 		}
-		System.out.println(dictionary.size());
+		System.out.println(map.size());
+
 	}
 
-	public void addWord(String word, int articleNumber, int position) {
-		PostingList postingList = getDictionary(word);
-		if (postingList == null) {
-			ArrayList<Integer> positions = new ArrayList<Integer>();
-			positions.add(position);
-			ArrayList<Article> articles = new ArrayList<Article>();
-			Article article = new Article(articleNumber, positions);
-			articles.add(article);
-			PostingList newPstList = new PostingList(word, articles);
-			dictionary.add(newPstList);
-		} else {
-			Article article = getArticle(postingList, articleNumber);
-			if (article == null) {
-				ArrayList<Integer> positions = new ArrayList<Integer>();
-				positions.add(position);
-				Article newArticle = new Article(articleNumber, positions);
-				postingList.articles.add(newArticle);
-			} else if (!articleContains(article, position))
-				article.positions.add(position);
+	private void updateNt(int articleIndex) {
+		for (int i = 0; i < nt.length; i++) {
+			if (vectors[articleIndex][i] != 0) {
+				nt[i] += 1;
+			}
 		}
 	}
 
-	private PostingList getDictionary(String word) {
-		for (PostingList postingList : dictionary)
-			if (postingList.word.equals(word))
-				return postingList;
-		return null;
-	}
-
-	private Article getArticle(PostingList postingList, int articleIndex) {
-		for (Article article : postingList.articles)
-			if (article.articleNumber == articleIndex)
-				return article;
-		return null;
-	}
-
-	private boolean articleContains(Article article, int positionIndex) {
-		for (Integer position : article.positions)
-			if (position == positionIndex)
-				return true;
-		return false;
-	}
+	
 
 	@Override
 	public PostingList search(String myString) {
 
-		Normalizer normal = new Normalizer(true,false,true);
+		Normalizer normal = new Normalizer(true, false, true);
 		myString = normal.run(myString);
 
-//		 converting بنا بر این to بنابراین
+		// converting بنا بر این to بنابراین
 		for (String s : Static.tarkibiPorkarbord) {
 			myString = myString.replaceAll(s, s.replace(" ", ""));
 		}
 
-		return search3(myString);
+		PostingList postingList = search3(myString);
+		
+		return rankArticles(myString, postingList.articles);
+		
 	}
 
-	
 	public PostingList search3(String myString) {
 		PostingList result;
 		if (quoteFul(myString)) {
@@ -223,7 +222,7 @@ public class Array implements DataStructure {
 				e.printStackTrace();
 			}
 			myString = lemmatize.lemmatize(myString);
-			
+
 			result = getDictionary(myString);
 		} else { // and
 			String[] strs = tokenize(myString);
@@ -235,6 +234,178 @@ public class Array implements DataStructure {
 		}
 		return result;
 
+	}
+	
+	public PostingList rankArticles(String myString, ArrayList<Article> articles) {
+		System.out.println(myString);
+
+		Normalizer normal = new Normalizer();
+
+		// converting بنا بر این to بنابراین
+		for (String s : Static.tarkibiPorkarbord) {
+			myString = myString.replaceAll(s, s.replace(" ", ""));
+		}
+
+		String[] strs = tokenizeRanked(myString);
+
+		//Lemmatize
+		try {
+			Lemmatizer lemmatize = new Lemmatizer();
+			for (int i = 0; i < strs.length; i++) {
+				strs[i] = lemmatize.lemmatize(strs[i]);
+			}
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		int[] queryVector = new int[map.size()];
+		for (String string : strs) {
+			if (map.get(string) != null) {
+				queryVector[map.get(string)]++;
+			}
+		}
+
+		float[] queryTfidfVector = new float[map.size()];
+		for (int j = 0; j < map.size(); j++) {
+			if (queryVector[j] == 0)
+				continue;
+			queryTfidfVector[j] = (float) ((1 + Math.log10(queryVector[j])) * Math.log10((numberOfDocs) / nt[j]));
+		}
+
+		float[] similarity = new float[articles.size()];
+		for (int i = 0; i < articles.size(); i++) {
+			//check articles[i].articleNumber - 1
+			float[] tfidfVector = tfidfVectors[articles.get(i).articleNumber - 1];
+			float tmp = 0;
+			for (int j = 0; j < tfidfVector.length; j++) {
+				tmp += tfidfVector[j] * queryTfidfVector[j];
+			}
+			float sizeTfidfVector = size(tfidfVector);
+			float sizeQueryTfidfVector = size(queryTfidfVector);
+			tmp /= (sizeTfidfVector * sizeQueryTfidfVector);
+			similarity[i] = tmp;
+		}
+
+		MaxHeap maxHeap = new MaxHeap(similarity);
+		int[] sortedArticlesIndexes = maxHeap.heapSort(selectedNumber); // this returns article indexes from 0 to similarity.length - 1
+		
+		ArrayList<Article> sortedArticles = new ArrayList<>();
+		
+		for (int i : sortedArticlesIndexes) {
+			sortedArticles.add(articles.get(i));
+		}
+		
+		return new PostingList("", sortedArticles);
+	}
+
+	private float size(float[] arr) {
+		float result = 0;
+		for (int i = 0; i < arr.length; i++) {
+			result += Math.pow(arr[i], 2);
+		}
+		if (result == 0)
+			return (float) 0.001;
+		result = (float) Math.sqrt(result);
+		return result;
+	}
+
+	private void updateVector(int articleIndex, String word) {
+		int wordIndex = map.get(word);
+		vectors[articleIndex][wordIndex]++;
+	}
+
+	private void addWord(String word, int articleNumber, int position) {
+		if (map.get(word) == null) {
+			map.put(word, map.size());
+		}
+		PostingList postingList = getDictionary(word);
+		if (postingList == null) {
+			ArrayList<Integer> positions = new ArrayList<Integer>();
+			positions.add(position);
+			ArrayList<Article> articles = new ArrayList<Article>();
+			Article article = new Article(articleNumber, positions);
+			articles.add(article);
+			PostingList newPstList = new PostingList(word, articles);
+			dictionary.add(newPstList);
+		} else {
+			Article article = getArticle(postingList, articleNumber);
+			if (article == null) {
+				ArrayList<Integer> positions = new ArrayList<Integer>();
+				positions.add(position);
+				Article newArticle = new Article(articleNumber, positions);
+				postingList.articles.add(newArticle);
+			} else if (!articleContains(article, position))
+				article.positions.add(position);
+		}
+	}
+
+	private void generateStopWords(File stopWordsFile) {
+		// generating stopwords array
+		try {
+			Scanner scr = new Scanner(stopWordsFile);
+			while (scr.hasNextLine()) {
+				String stopWord = scr.nextLine();
+				stopWords.add(stopWord);
+			}
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+
+	private void generateHamsanSazWords(File hamsansazFile) {
+		// generating همسان ساز array. I supposed hamsansaz is for 2 words
+		try {
+			Scanner scr = new Scanner(hamsansazFile);
+			while (scr.hasNextLine()) {
+				String hamsan = scr.nextLine();
+				String[] hamsans = hamsan.split(" ");
+				correctHamsansaz.add(hamsans[0]);
+				wrongHamsansaz.add(hamsans[1]);
+			}
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+	}
+
+	private void generateTarkibiPorkarbordWords(File tarkibiPorkarbordFile) {
+		// generating tarkibiPorkarbord array
+		Static.tarkibiPorkarbord = new ArrayList<String>();
+		try {
+			Scanner scr = new Scanner(tarkibiPorkarbordFile);
+			while (scr.hasNextLine()) {
+				String tarkibi = scr.nextLine();
+				Static.tarkibiPorkarbord.add(tarkibi);
+			}
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+	}
+
+	private PostingList getDictionary(String word) {
+		for (PostingList postingList : dictionary)
+			if (postingList.word.equals(word))
+				return postingList;
+		return null;
+	}
+
+	private Article getArticle(PostingList postingList, int articleIndex) {
+		for (Article article : postingList.articles)
+			if (article.articleNumber == articleIndex)
+				return article;
+		return null;
+	}
+
+	private boolean articleContains(Article article, int positionIndex) {
+		for (Integer position : article.positions)
+			if (position == positionIndex)
+				return true;
+		return false;
 	}
 
 	private String removeNot(String myString) {
@@ -271,7 +442,7 @@ public class Array implements DataStructure {
 		}
 		return true;
 	}
-	
+
 	public String[] tokenize(String myString) {
 		ArrayList<String> tokens = new ArrayList<>();
 		for (int i = 0; i < myString.length();) {
@@ -292,8 +463,7 @@ public class Array implements DataStructure {
 					}
 					tokens.add(myString.substring(i, k + 1));
 					i = k + 1;
-				}
-				else {
+				} else {
 					int k = j + 1;
 					while (k < myString.length() && myString.charAt(k) != ' ') {
 						k++;
@@ -301,10 +471,9 @@ public class Array implements DataStructure {
 					tokens.add(myString.substring(i, k));
 					i = k + 1;
 				}
-			} else if(c == ' ') {
+			} else if (c == ' ') {
 				i++;
-			}
-			else {
+			} else {
 				int j = i + 1;
 				while (j < myString.length() && myString.charAt(j) != ' ') {
 					j++;
@@ -313,6 +482,55 @@ public class Array implements DataStructure {
 				i = j + 1;
 			}
 		}
+		String[] tokens_arr = new String[tokens.size()];
+		for (int i = 0; i < tokens_arr.length; i++) {
+			tokens_arr[i] = tokens.get(i);
+		}
+		return tokens_arr;
+	}
+	
+	public String[] tokenizeRanked(String myString) {
+		ArrayList<String> tokens = new ArrayList<>();
+		for (int i = 0; i < myString.length();) {
+			char c = myString.charAt(i);
+			if (c == '"') {
+				int j = i + 1;
+				while (j < myString.length() && myString.charAt(j) != '"') {
+					if (myString.charAt(j) == ' ') {
+						tokens.add(myString.substring(i+1, j));
+						i = j;
+					}
+					j++;
+				}
+				tokens.add(myString.substring(i + 1, j));
+				i = j + 1;
+			} else if (c == '!') {
+				int j = i + 1;
+				if (myString.charAt(j) == '"') {
+					int k = j + 1;
+					while (k < myString.length() && myString.charAt(k) != '"') {
+						k++;
+					}
+					i = k + 1;
+				} else {
+					int k = j + 1;
+					while (k < myString.length() && myString.charAt(k) != ' ') {
+						k++;
+					}
+					i = k + 1;
+				}
+			} else if (c == ' ') {
+				i++;
+			} else {
+				int j = i + 1;
+				while (j < myString.length() && myString.charAt(j) != ' ') {
+					j++;
+				}
+				tokens.add(myString.substring(i, j));
+				i = j + 1;
+			}
+		}
+
 		String[] tokens_arr = new String[tokens.size()];
 		for (int i = 0; i < tokens_arr.length; i++) {
 			tokens_arr[i] = tokens.get(i);
