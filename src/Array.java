@@ -23,9 +23,11 @@ public class Array implements DataStructure {
 	ArrayList<String> stopWords = new ArrayList<String>();
 	ArrayList<String> correctHamsansaz = new ArrayList<String>();
 	ArrayList<String> wrongHamsansaz = new ArrayList<String>();
+	ArrayList<String> correctAbbreviation = new ArrayList<String>();
+	ArrayList<String> wrongAbbreviation = new ArrayList<String>();
 
 	@Override
-	public void build(File mainFile, File stopWordsFile, File hamsansazFile, File tarkibiPorkarbordFile) {
+	public void build(File mainFile, File stopWordsFile, File hamsansazFile, File abbreviationFile, File tarkibiPorkarbordFile) {
 
 		// generating stopwords array
 		try {
@@ -75,7 +77,7 @@ public class Array implements DataStructure {
 			HSSFCell cell;
 
 			numberOfRows = Static.sheet.getPhysicalNumberOfRows(); // No of rows
-			System.out.println(numberOfRows);
+			System.out.println("num of docs : " + (numberOfRows -1));
 
 			int cols = 0; // No of columns
 			int tmp = 0;
@@ -139,7 +141,7 @@ public class Array implements DataStructure {
 		} catch (Exception ioe) {
 			ioe.printStackTrace();
 		}
-		System.out.println(dictionary.size());
+		System.out.println("num of unique words : " + dictionary.size());
 	}
 
 	public void addWord(String word, int articleNumber, int position) {
@@ -223,7 +225,9 @@ public class Array implements DataStructure {
 				e.printStackTrace();
 			}
 			myString = lemmatize.lemmatize(myString);
-			
+			if (wrongHamsansaz.contains(myString)) {
+				myString = correctHamsansaz.get(wrongHamsansaz.indexOf(myString));
+			}
 			result = getDictionary(myString);
 		} else { // and
 			String[] strs = tokenize(myString);
@@ -246,7 +250,7 @@ public class Array implements DataStructure {
 	}
 
 	private boolean quoteFul(String myString) {
-		if (('\"' == myString.charAt(myString.length() - 1)) && ('\"' == myString.charAt(0)))
+		if (('"' == myString.charAt(myString.length() - 1)) && ('"' == myString.charAt(0)) && !removeQuote(myString).contains("\""))
 			return true;
 		return false;
 	}

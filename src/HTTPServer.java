@@ -47,9 +47,8 @@ public class HTTPServer {
 
 		System.out.println("Server started on port 8080");
 
-		Static.searchEngine.build(new File("News/IR-F19-Project01-Input.xls"), new File("News/stopWords.txt"),
-				new File("News/hamsanSaz.txt"), new File("News/tarkibi_porkarbord.txt"));
-
+		Static.searchEngine.build(new File(Static.mainFile), new File(Static.stopWordsFile),
+				new File(Static.hamsanSazFile), new File(Static.abbreviationFile), new File(Static.tarkibiPorkarbordFile));
 	}
 }
 
@@ -138,7 +137,12 @@ class JSONHandler implements HttpHandler {
 			////////////////////////////// enter your code here
 			PostingList pstL = Static.searchEngine.search(body);
 			String outputHtml = new String();
+			if (pstL == null) {
+				pstL = new PostingList("", new ArrayList<Article>());
+			}
+			int count = 0;
 			for (Article a : pstL.articles) {
+				count++;
 				System.out.println(a.articleNumber);
 
 				String text = Static.getRowCell(a.articleNumber, 5);
@@ -153,6 +157,13 @@ class JSONHandler implements HttpHandler {
 				// converting tarkibiPorkarbord words into it's common shape
 				for (String s : Static.tarkibiPorkarbord) {
 					text = text.replaceAll(s, s.replace(" ", ""));
+				}
+				
+				// مخفف converting ج.ا to جمهوری اسلامی
+				for (int i = 0; i < Static.wrongAbbreviation.size() ; i++) {
+					String wrong = Static.wrongAbbreviation.get(i);
+					String correct = Static.correctAbbreviation.get(i);
+					text = text.replaceAll(wrong, correct);
 				}
 
 				WordTokenizer tokenizer = new WordTokenizer();
@@ -190,6 +201,17 @@ class JSONHandler implements HttpHandler {
 				outputHtml += res;
 
 			}
+			String numberOfCounts;
+			if (count == 0) {
+				numberOfCounts = "<h2>no articles found</h2>";
+			}
+			else if (count == 1) {
+				numberOfCounts = "<h2>1article found</h2>";
+			}
+			else {
+				numberOfCounts = "<h2>" + count + "articles found</h2>";
+			}
+			outputHtml = numberOfCounts + outputHtml;
 			//////////////////////////////////////
 			exchange.getResponseHeaders().set(Constants.CONTENTTYPE, Constants.APPLICATIONJSON);
 			exchange.sendResponseHeaders(200, 0);

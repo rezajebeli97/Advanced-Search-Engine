@@ -25,18 +25,20 @@ public class RankedSearch implements DataStructure {
 	ArrayList<String> stopWords = new ArrayList<String>();
 	ArrayList<String> correctHamsansaz = new ArrayList<String>();
 	ArrayList<String> wrongHamsansaz = new ArrayList<String>();
+	
 	int[][] vectors;
 	float[][] tfidfVectors;
 	int[] nt; // how many docs contain word t?
-	int selectedNumber = 100;
-	ArrayList<String> strings = new ArrayList<String>();
 
 	@Override
-	public void build(File mainFile, File stopWordsFile, File hamsansazFile, File tarkibiPorkarbordFile) {
+	public void build(File mainFile, File stopWordsFile, File hamsansazFile, File abbreviationFile,
+			File tarkibiPorkarbordFile) {
 
 		generateStopWords(stopWordsFile);
 
 		generateHamsanSazWords(hamsansazFile);
+
+		generateabbreviationWords(abbreviationFile);
 
 		generateTarkibiPorkarbordWords(tarkibiPorkarbordFile);
 
@@ -50,7 +52,7 @@ public class RankedSearch implements DataStructure {
 
 			numberOfRows = Static.sheet.getPhysicalNumberOfRows(); // No of rows
 			numberOfDocs = numberOfRows - 1;
-			System.out.println(numberOfDocs);
+			System.out.println("num of docs : " + numberOfDocs);
 
 			int cols = 0; // No of columns
 			int tmp = 0;
@@ -89,7 +91,13 @@ public class RankedSearch implements DataStructure {
 
 						// converting tarkibiPorkarbord words into it's common shape
 						for (String s : Static.tarkibiPorkarbord) {
-							noPunctuation = noPunctuation.replaceAll(s, s.replace(" ", ""));
+							normalized = normalized.replaceAll(s, s.replace(" ", ""));
+						}
+						// مخفف converting ج.ا to جمهوری اسلامی
+						for (int i = 0; i < Static.wrongAbbreviation.size() ; i++) {
+							String wrong = Static.wrongAbbreviation.get(i);
+							String correct = Static.correctAbbreviation.get(i);
+							normalized = normalized.replaceAll(wrong, correct);
 						}
 
 						List<String> tokens = tokenizer.tokenize(normalized);
@@ -105,6 +113,7 @@ public class RankedSearch implements DataStructure {
 							if (wrongHamsansaz.contains(word)) {
 								word = correctHamsansaz.get(wrongHamsansaz.indexOf(word));
 							}
+							
 							addWord(word, r, position);
 							position++;
 						}
@@ -112,7 +121,7 @@ public class RankedSearch implements DataStructure {
 				}
 			}
 
-			System.out.println(map.size());
+			System.out.println("num of unique words : " + map.size());
 
 			vectors = new int[numberOfDocs][map.size()];
 			nt = new int[map.size()];
@@ -135,7 +144,14 @@ public class RankedSearch implements DataStructure {
 
 						// converting tarkibiPorkarbord words into it's common shape
 						for (String s : Static.tarkibiPorkarbord) {
-							noPunctuation = noPunctuation.replaceAll(s, s.replace(" ", ""));
+							normalized = normalized.replaceAll(s, s.replace(" ", ""));
+						}
+						
+						// مخفف converting ج.ا to جمهوری اسلامی
+						for (int i = 0; i < Static.wrongAbbreviation.size() ; i++) {
+							String wrong = Static.wrongAbbreviation.get(i);
+							String correct = Static.correctAbbreviation.get(i);
+							normalized = normalized.replaceAll(wrong, correct);
 						}
 
 						List<String> tokens = tokenizer.tokenize(normalized);
@@ -160,33 +176,33 @@ public class RankedSearch implements DataStructure {
 			tfidfVectors = new float[numberOfDocs][map.size()];
 			for (int i = 0; i < vectors.length; i++) {
 				for (int j = 0; j < vectors[0].length; j++) {
+					
 					if (vectors[i][j] == 0)
 						continue;
 					switch (Static.weightingScheme) {
 					case 1:
-						tfidfVectors[i][j] = (float) (vectors[i][j] * Math.log10((numberOfDocs) / nt[j]));
+						tfidfVectors[i][j] = (float) (vectors[i][j] * Math.log10((float)(numberOfDocs) / nt[j]));
 						break;
 					case 2:
 						tfidfVectors[i][j] = (float) (1 + Math.log10(vectors[i][j]));
 						break;
 					case 3:
-						tfidfVectors[i][j] = (float) ((1 + Math.log10(vectors[i][j])) * Math.log10((numberOfDocs) / nt[j]));
+						tfidfVectors[i][j] = (float) ((1 + Math.log10(vectors[i][j])) * Math.log10((float)(numberOfDocs) / nt[j]));
 						break;
 					}
-					
+
 				}
 			}
 
 		} catch (Exception ioe) {
 			ioe.printStackTrace();
 		}
-		System.out.println(map.size());
-
+		System.out.println("num of unique words : " + map.size());
 	}
 
 	private void zipfLaw() {
 		MaxHeapInt maxHeap = new MaxHeapInt(nt);
-		int[] res = maxHeap.heapSort(nt.length);
+		int[] res = maxHeap.heapSort(1000);
 
 		for (int i : res) {
 			System.out.println(i);
@@ -211,9 +227,18 @@ public class RankedSearch implements DataStructure {
 		for (String s : Static.tarkibiPorkarbord) {
 			myString = myString.replaceAll(s, s.replace(" ", ""));
 		}
+		
+		// مخفف converting ج.ا to جمهوری اسلامی
+		for (int i = 0; i < Static.wrongAbbreviation.size() ; i++) {
+			String wrong = Static.wrongAbbreviation.get(i);
+			String correct = Static.correctAbbreviation.get(i);
+			myString = myString.replaceAll(wrong, correct);
+		}
 
 		PostingList postingList = search3(myString);
 
+		if (postingList == null)
+			return null;
 		return rankArticles(myString, postingList.articles);
 
 	}
@@ -241,7 +266,9 @@ public class RankedSearch implements DataStructure {
 				e.printStackTrace();
 			}
 			myString = lemmatize.lemmatize(myString);
-
+			if (wrongHamsansaz.contains(myString)) {
+				myString = correctHamsansaz.get(wrongHamsansaz.indexOf(myString));
+			}
 			result = getDictionary(myString);
 		} else { // and
 			String[] strs = tokenize(myString);
@@ -256,13 +283,18 @@ public class RankedSearch implements DataStructure {
 	}
 
 	public PostingList rankArticles(String myString, ArrayList<Article> articles) {
-		System.out.println(myString);
 
 		Normalizer normal = new Normalizer();
 
 		// converting بنا بر این to بنابراین
 		for (String s : Static.tarkibiPorkarbord) {
 			myString = myString.replaceAll(s, s.replace(" ", ""));
+		}
+		// مخفف converting ج.ا to جمهوری اسلامی
+		for (int i = 0; i < Static.wrongAbbreviation.size() ; i++) {
+			String wrong = Static.wrongAbbreviation.get(i);
+			String correct = Static.correctAbbreviation.get(i);
+			myString = myString.replaceAll(wrong, correct);
 		}
 
 		String[] strs = tokenizeRanked(myString);
@@ -276,6 +308,12 @@ public class RankedSearch implements DataStructure {
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
+		}
+
+		for (int i = 0; i < strs.length; i++) {
+			if (wrongHamsansaz.contains(strs[i])) {
+				strs[i] = correctHamsansaz.get(wrongHamsansaz.indexOf(strs[i]));
+			}
 		}
 
 		int[] queryVector = new int[map.size()];
@@ -295,16 +333,16 @@ public class RankedSearch implements DataStructure {
 				for (float q : queryVector) {
 					max = Math.max(max, q);
 				}
-				queryTfidfVector[j] = (float) ((0.5 + queryVector[j]/(2 * max)) * Math.log10((numberOfDocs) / nt[j]));
+				queryTfidfVector[j] = (float) ((0.5 + (float)queryVector[j] / (2 * max)) * Math.log10((float)(numberOfDocs) / nt[j]));
 				break;
 			case 2:
-				queryTfidfVector[j] = (float) Math.log10(1 + (numberOfDocs) / nt[j]);
+				queryTfidfVector[j] = (float) Math.log10(1 + (float)(numberOfDocs) / nt[j]);
 				break;
 			case 3:
-				queryTfidfVector[j] = (float) ((1 + Math.log10(queryVector[j])) * Math.log10((numberOfDocs) / nt[j]));
+				queryTfidfVector[j] = (float) ((1 + Math.log10(queryVector[j])) * Math.log10((float)(numberOfDocs) / nt[j]));
 				break;
 			}
-			
+
 		}
 
 		float[] similarity = new float[articles.size()];
@@ -317,12 +355,12 @@ public class RankedSearch implements DataStructure {
 			}
 			float sizeTfidfVector = size(tfidfVector);
 			float sizeQueryTfidfVector = size(queryTfidfVector);
-			tmp /= (sizeTfidfVector * sizeQueryTfidfVector);
+			tmp /= ((float)sizeTfidfVector * (float)sizeQueryTfidfVector);
 			similarity[i] = tmp;
 		}
 
 		MaxHeap maxHeap = new MaxHeap(similarity);
-		int[] sortedArticlesIndexes = maxHeap.heapSort(selectedNumber); // this returns article indexes from 0 to
+		int[] sortedArticlesIndexes = maxHeap.heapSort(Static.selectedNumber); // this returns article indexes from 0 to
 																		// similarity.length - 1
 
 		ArrayList<Article> sortedArticles = new ArrayList<>();
@@ -353,7 +391,6 @@ public class RankedSearch implements DataStructure {
 	private void addWord(String word, int articleNumber, int position) {
 		if (map.get(word) == null) {
 			map.put(word, map.size());
-			strings.add(word);
 		}
 		PostingList postingList = getDictionary(word);
 		if (postingList == null) {
@@ -391,6 +428,42 @@ public class RankedSearch implements DataStructure {
 	}
 
 	private void generateHamsanSazWords(File hamsansazFile) {
+		// generating همسان ساز array. I supposed hamsansaz is for 2 words
+		try {
+			Scanner scr = new Scanner(hamsansazFile);
+			while (scr.hasNextLine()) {
+				String hamsan = scr.nextLine();
+				String[] hamsans = hamsan.split(" ");
+				correctHamsansaz.add(hamsans[0]);
+				wrongHamsansaz.add(hamsans[1]);
+			}
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+	}
+
+	private void generateabbreviationWords(File abbreviationFile) {
+		Static.wrongAbbreviation = new ArrayList<String>();
+		Static.correctAbbreviation = new ArrayList<String>();
+		try {
+			Scanner scr = new Scanner(abbreviationFile);
+			while (scr.hasNextLine()) {
+				String hamsan = scr.nextLine();
+				int tmp = hamsan.indexOf(" ");
+				String wrong = hamsan.substring(0, tmp);
+				String correct = hamsan.substring(tmp + 1);
+				Static.correctAbbreviation.add(correct);
+				Static.wrongAbbreviation.add(wrong);
+			}
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+
+	private void generate(File hamsansazFile) {
 		// generating همسان ساز array. I supposed hamsansaz is for 2 words
 		try {
 			Scanner scr = new Scanner(hamsansazFile);
@@ -453,7 +526,8 @@ public class RankedSearch implements DataStructure {
 	}
 
 	private boolean quoteFul(String myString) {
-		if (('\"' == myString.charAt(myString.length() - 1)) && ('\"' == myString.charAt(0)))
+		if (('"' == myString.charAt(myString.length() - 1)) && ('"' == myString.charAt(0))
+				&& !removeQuote(myString).contains("\""))
 			return true;
 		return false;
 	}
