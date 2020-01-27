@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Random;
 import java.util.Scanner;
 
 import org.apache.poi.hssf.usermodel.HSSFCell;
@@ -25,10 +26,12 @@ public class RankedSearch implements DataStructure {
 	ArrayList<String> stopWords = new ArrayList<String>();
 	ArrayList<String> correctHamsansaz = new ArrayList<String>();
 	ArrayList<String> wrongHamsansaz = new ArrayList<String>();
-	
-	int[][] vectors;
-	float[][] tfidfVectors;
-	int[] nt; // how many docs contain word t?
+
+	SparseArray<Integer>[] vectors;
+	SparseArray<Float>[] tfidfVectors;
+	int[] nt; // how many doc contains word t?
+	private int numOfClusteringIterations = 10;
+	private Cluster[] clusters;
 
 	@Override
 	public void build(File mainFile, File stopWordsFile, File hamsansazFile, File abbreviationFile,
@@ -53,6 +56,7 @@ public class RankedSearch implements DataStructure {
 			numberOfRows = Static.sheet.getPhysicalNumberOfRows(); // No of rows
 			numberOfDocs = numberOfRows - 1;
 			System.out.println("num of docs : " + numberOfDocs);
+			System.out.println();
 
 			int cols = 0; // No of columns
 			int tmp = 0;
@@ -94,7 +98,7 @@ public class RankedSearch implements DataStructure {
 							normalized = normalized.replaceAll(s, s.replace(" ", ""));
 						}
 						// مخفف converting ج.ا to جمهوری اسلامی
-						for (int i = 0; i < Static.wrongAbbreviation.size() ; i++) {
+						for (int i = 0; i < Static.wrongAbbreviation.size(); i++) {
 							String wrong = Static.wrongAbbreviation.get(i);
 							String correct = Static.correctAbbreviation.get(i);
 							normalized = normalized.replaceAll(wrong, correct);
@@ -113,7 +117,7 @@ public class RankedSearch implements DataStructure {
 							if (wrongHamsansaz.contains(word)) {
 								word = correctHamsansaz.get(wrongHamsansaz.indexOf(word));
 							}
-							
+
 							addWord(word, r, position);
 							position++;
 						}
@@ -121,9 +125,14 @@ public class RankedSearch implements DataStructure {
 				}
 			}
 
+			System.out.println("Dictionary Built");
 			System.out.println("num of unique words : " + map.size());
+			System.out.println();
 
-			vectors = new int[numberOfDocs][map.size()];
+			vectors = new SparseArray[numberOfDocs];
+			for (int i = 0; i < vectors.length; i++) {
+				vectors[i] = new SparseArray<Integer>();
+			}
 			nt = new int[map.size()];
 
 			for (int r = 1; r < numberOfRows; r++) {
@@ -146,9 +155,9 @@ public class RankedSearch implements DataStructure {
 						for (String s : Static.tarkibiPorkarbord) {
 							normalized = normalized.replaceAll(s, s.replace(" ", ""));
 						}
-						
+
 						// مخفف converting ج.ا to جمهوری اسلامی
-						for (int i = 0; i < Static.wrongAbbreviation.size() ; i++) {
+						for (int i = 0; i < Static.wrongAbbreviation.size(); i++) {
 							String wrong = Static.wrongAbbreviation.get(i);
 							String correct = Static.correctAbbreviation.get(i);
 							normalized = normalized.replaceAll(wrong, correct);
@@ -167,37 +176,164 @@ public class RankedSearch implements DataStructure {
 							}
 							updateVector(r - 1, word);
 						}
-						updateNt(r - 1);
 					}
 				}
 			}
 
+			updateNt();
+
 			// generating tfidf
-			tfidfVectors = new float[numberOfDocs][map.size()];
+			tfidfVectors = new SparseArray[numberOfDocs];
+			for (int i = 0; i < tfidfVectors.length; i++) {
+				tfidfVectors[i] = new SparseArray<Float>();
+			}
 			for (int i = 0; i < vectors.length; i++) {
-				for (int j = 0; j < vectors[0].length; j++) {
-					
-					if (vectors[i][j] == 0)
-						continue;
+				SparseArray<Integer> vector = vectors[i];
+				for (Sparse<Integer> sparse : vector.array) {
+					int index = sparse.index;
+					int value = sparse.value;
 					switch (Static.weightingScheme) {
 					case 1:
-						tfidfVectors[i][j] = (float) (vectors[i][j] * Math.log10((float)(numberOfDocs) / nt[j]));
+						tfidfVectors[i].array.add(new Sparse<Float>(index,
+								(float) (value * Math.log10((float) (numberOfDocs) / nt[index]))));
 						break;
 					case 2:
-						tfidfVectors[i][j] = (float) (1 + Math.log10(vectors[i][j]));
+						tfidfVectors[i].array.add(new Sparse<Float>(index, (float) (1 + Math.log10(value))));
 						break;
 					case 3:
-						tfidfVectors[i][j] = (float) ((1 + Math.log10(vectors[i][j])) * Math.log10((float)(numberOfDocs) / nt[j]));
+						tfidfVectors[i].array.add(new Sparse<Float>(index,
+								(float) ((1 + Math.log10(value)) * Math.log10((float) (numberOfDocs) / nt[index]))));
 						break;
 					}
-
 				}
 			}
 
 		} catch (Exception ioe) {
 			ioe.printStackTrace();
 		}
-		System.out.println("num of unique words : " + map.size());
+		System.out.println("TfIdf Finished");
+		System.out.println();
+
+		// TODO
+		clustering(7);
+		System.out.println("Clustering Finished");
+		for (Cluster cluster : clusters) {
+			System.out.println(cluster.indexes.size());
+		}
+	}
+
+	private void clustering(int k) { // k = num of clusters
+		clusters = new Cluster[k];
+		for (int i = 0; i < k; i++) {
+			clusters[i] = new Cluster();
+			int centroidIndex = (int) (Math.random() * numberOfDocs);
+			clusters[i].centroid = tfidfVectors[centroidIndex];
+		}
+		for (int iteration = 0; iteration < numOfClusteringIterations; iteration++) {
+			for (int i = 0; i < clusters.length; i++) {
+				clusters[i].indexes = new ArrayList<>();
+			}
+			for (int docIndex = 0; docIndex < tfidfVectors.length; docIndex++) { // detect cluster for each data; به
+																					// کدوم کلاستر نزدیکتره هر داک
+				float max = 0;
+				int maxClusterIndex = 0;
+				for (int clusterIndex = 0; clusterIndex < clusters.length; clusterIndex++) {
+					SparseArray<Float> centroid = clusters[clusterIndex].centroid;
+					float similarity = similaritySparse(centroid, tfidfVectors[docIndex]);
+					if (similarity > max) {
+						max = similarity;
+						maxClusterIndex = clusterIndex;
+					}
+				}
+				clusters[maxClusterIndex].indexes.add(docIndex);
+
+			}
+
+			for (int clusterIndex = 0; clusterIndex < clusters.length; clusterIndex++) { // compute centroid of each
+																							// cluster
+				SparseArray<Float> tmp = clusters[clusterIndex].centroid.clone();
+				for (int docIndex : clusters[clusterIndex].indexes) {
+					tmp = addSparse(tfidfVectors[docIndex], tmp);
+				}
+				tmp = divisionSparse(tmp, clusters[clusterIndex].indexes.size());
+				clusters[clusterIndex].centroid = tmp;
+			}
+		}
+	}
+
+	private SparseArray<Float> divisionSparse(SparseArray<Float> tmp, int size) {
+		for (int i = 0; i < tmp.array.size(); i++) {
+			tmp.array.get(i).value = (float) tmp.array.get(i).value / (float) 2;
+		}
+		return tmp;
+	}
+
+	private SparseArray<Float> addSparse(SparseArray<Float> sparseArray1, SparseArray<Float> sparseArray2) {
+		float tmp = 0;
+		int index1 = 0;
+		int index2 = 0;
+		SparseArray<Float> resultArray = new SparseArray<Float>();
+
+		while (index1 < sparseArray1.array.size() && index2 < sparseArray2.array.size()) {
+			int arr1Index = sparseArray1.array.get(index1).index;
+			int arr2Index = sparseArray2.array.get(index2).index;
+			float arr1Value = sparseArray1.array.get(index1).value;
+			float arr2Value = sparseArray2.array.get(index2).value;
+
+			if (arr1Index == arr2Index) {
+				tmp = arr1Value + arr2Value;
+				resultArray.array.add(new Sparse<Float>(arr1Index, tmp));
+				index1++;
+				index2++;
+			} else if (arr1Index < arr2Index) {
+				resultArray.array.add(new Sparse<Float>(arr1Index, arr1Value));
+				index1++;
+			} else {
+				resultArray.array.add(new Sparse<Float>(arr2Index, arr2Value));
+				index2++;
+			}
+		}
+
+		if (index1 < sparseArray1.array.size()) {
+			for (; index1 < sparseArray1.array.size(); index1++) {
+				resultArray.array.add(
+						new Sparse<Float>(sparseArray1.array.get(index1).index, sparseArray1.array.get(index1).value));
+			}
+		}
+		if (index2 < sparseArray2.array.size()) {
+			for (; index2 < sparseArray2.array.size(); index2++) {
+				resultArray.array.add(
+						new Sparse<Float>(sparseArray2.array.get(index2).index, sparseArray2.array.get(index2).value));
+			}
+		}
+		return resultArray;
+	}
+
+	private float similaritySparse(SparseArray<Float> sparseArr1, SparseArray<Float> sparseArr2) {
+		float tmp = 0;
+		int index1 = 0;
+		int index2 = 0;
+
+		while (index1 < sparseArr1.array.size() && index2 < sparseArr2.array.size()) {
+			int sparseArr1Index = sparseArr1.array.get(index1).index;
+			int sparseArr2Index = sparseArr2.array.get(index2).index;
+
+			if (sparseArr1Index == sparseArr2Index) {
+				tmp += sparseArr1.array.get(index1).value * sparseArr2.array.get(index2).value;
+				index1++;
+				index2++;
+			} else if (sparseArr1Index < sparseArr2Index) {
+				index1++;
+			} else {
+				index2++;
+			}
+		}
+
+		float sizeSparseArr1 = size(sparseArr1);
+		float sizeSparseArr2 = size(sparseArr2);
+		tmp /= ((float) sizeSparseArr1 * (float) sizeSparseArr2);
+
+		return tmp;
 	}
 
 	private void zipfLaw() {
@@ -209,12 +345,10 @@ public class RankedSearch implements DataStructure {
 		}
 	}
 
-	private void updateNt(int articleIndex) {
-		for (int i = 0; i < nt.length; i++) {
-			if (vectors[articleIndex][i] != 0) {
-				nt[i] += 1;
-			}
-		}
+	private void updateNt() {
+		for (SparseArray<Integer> arrayList : vectors)
+			for (Sparse sparse : arrayList.array)
+				nt[sparse.index] += 1;
 	}
 
 	@Override
@@ -227,20 +361,92 @@ public class RankedSearch implements DataStructure {
 		for (String s : Static.tarkibiPorkarbord) {
 			myString = myString.replaceAll(s, s.replace(" ", ""));
 		}
-		
+
 		// مخفف converting ج.ا to جمهوری اسلامی
-		for (int i = 0; i < Static.wrongAbbreviation.size() ; i++) {
+		for (int i = 0; i < Static.wrongAbbreviation.size(); i++) {
 			String wrong = Static.wrongAbbreviation.get(i);
 			String correct = Static.correctAbbreviation.get(i);
 			myString = myString.replaceAll(wrong, correct);
 		}
 
-		PostingList postingList = search3(myString);
+		/////////////////////
 
-		if (postingList == null)
-			return null;
-		return rankArticles(myString, postingList.articles);
+		if (myString.contains("cat")) {
+			String queryCategory = getCategory(myString);
+			myString = removeCategory(myString);
 
+			PostingList postingList = search3(myString);
+			String[] strs = tokenizeRanked(myString);
+			SparseArray<Float> queryTfidfVector = computeTfIdf(strs);
+			int bestClusterIndex = bestClusterIndex(queryTfidfVector);
+			ArrayList<Integer> clusterSet = clusters[bestClusterIndex].indexes;
+
+			// TODO: after developing cat
+			//ArrayList<Integer> classificationSet = getIndexesOfClass(queryCategory);
+
+			PostingList selectedPstList = interSection(postingList, null/*classificationSet*/, clusterSet);
+			if (selectedPstList == null)
+				return null;
+			return rankArticles(strs, selectedPstList.articles);
+			
+		} else {
+			PostingList postingList = search3(myString);
+			String[] strs = tokenizeRanked(myString);
+			SparseArray<Float> queryTfidfVector = computeTfIdf(strs);
+			int bestClusterIndex = bestClusterIndex(queryTfidfVector);
+			ArrayList<Integer> clusterSet = clusters[bestClusterIndex].indexes;
+			PostingList selectedPstList = interSection(postingList, clusterSet);
+			if (selectedPstList == null)
+				return null;
+			return rankArticles(strs, selectedPstList.articles);
+		}
+
+		/////////////////////////
+
+		// PostingList postingList = search3(myString);
+		//
+		// if (postingList == null)
+		// return null;
+		// return rankArticles(myString, postingList.articles);
+	}
+
+	private int bestClusterIndex(SparseArray<Float> tfIdfVector) {
+		float max = 0;
+		int maxCluster = 0;
+		for (int i = 0; i < clusters.length; i++) {
+			float similarity = similaritySparse(clusters[i].centroid, tfIdfVector);
+			if (similarity > max) {
+				max = similarity;
+				maxCluster = i;
+			}
+		}
+		return maxCluster;
+	}
+
+	private static String removeCategory(String myString) {
+		String category = "";
+		int start = myString.indexOf("cat");
+		for (int i = start; i < myString.length(); i++) {
+			char c = myString.charAt(i);
+			if (c == ' ')
+				break;
+			else
+				category += c;
+		}
+		return myString.replace(category, "");
+	}
+
+	private String getCategory(String myString) {
+		String category = "";
+		int start = myString.indexOf("cat");
+		for (int i = start + 4; i < myString.length(); i++) {
+			char c = myString.charAt(i);
+			if (c == ' ')
+				break;
+			else
+				category += c;
+		}
+		return category;
 	}
 
 	public PostingList search3(String myString) {
@@ -282,23 +488,50 @@ public class RankedSearch implements DataStructure {
 
 	}
 
-	public PostingList rankArticles(String myString, ArrayList<Article> articles) {
+	public PostingList rankArticles(String[] strs, ArrayList<Article> articles) {
 
-		Normalizer normal = new Normalizer();
+		// Normalizer normal = new Normalizer();
+		//
+		// // converting بنا بر این to بنابراین
+		// for (String s : Static.tarkibiPorkarbord) {
+		// myString = myString.replaceAll(s, s.replace(" ", ""));
+		// }
+		// // مخفف converting ج.ا to جمهوری اسلامی
+		// for (int i = 0; i < Static.wrongAbbreviation.size() ; i++) {
+		// String wrong = Static.wrongAbbreviation.get(i);
+		// String correct = Static.correctAbbreviation.get(i);
+		// myString = myString.replaceAll(wrong, correct);
+		// }
 
-		// converting بنا بر این to بنابراین
-		for (String s : Static.tarkibiPorkarbord) {
-			myString = myString.replaceAll(s, s.replace(" ", ""));
+		// String[] strs = tokenizeRanked(myString);
+
+		SparseArray<Float> queryTfidfVector = computeTfIdf(strs);
+
+		float[] similarity = new float[articles.size()];
+		for (int i = 0; i < articles.size(); i++) {
+			// check articles[i].articleNumber - 1
+			SparseArray<Float> tfidfVector = tfidfVectors[articles.get(i).articleNumber - 1];
+			float tmp = similaritySparse(tfidfVector, queryTfidfVector);
+			// float sizeTfidfVector = size(tfidfVector);
+			// float sizeQueryTfidfVector = size(queryTfidfVector);
+			// tmp /= ((float)sizeTfidfVector * (float)sizeQueryTfidfVector);
+			similarity[i] = tmp;
 		}
-		// مخفف converting ج.ا to جمهوری اسلامی
-		for (int i = 0; i < Static.wrongAbbreviation.size() ; i++) {
-			String wrong = Static.wrongAbbreviation.get(i);
-			String correct = Static.correctAbbreviation.get(i);
-			myString = myString.replaceAll(wrong, correct);
+
+		MaxHeap maxHeap = new MaxHeap(similarity);
+		int[] sortedArticlesIndexes = maxHeap.heapSort(Static.selectedNumber); // this returns article indexes from 0 to
+		// similarity.length - 1
+
+		ArrayList<Article> sortedArticles = new ArrayList<>();
+
+		for (int i : sortedArticlesIndexes) {
+			sortedArticles.add(articles.get(i));
 		}
 
-		String[] strs = tokenizeRanked(myString);
+		return new PostingList("", sortedArticles);
+	}
 
+	private SparseArray<Float> computeTfIdf(String[] strs) {
 		// Lemmatize
 		try {
 			Lemmatizer lemmatize = new Lemmatizer();
@@ -316,66 +549,64 @@ public class RankedSearch implements DataStructure {
 			}
 		}
 
-		int[] queryVector = new int[map.size()];
+		SparseArray<Integer> queryVector = new SparseArray<Integer>();
+
 		for (String string : strs) {
-			if (map.get(string) != null) {
-				queryVector[map.get(string)]++;
+			if (map.get(string) == null)
+				continue;
+
+			int wordIndex = map.get(string);
+
+			for (int i = 0; i <= queryVector.array.size(); i++) {
+				if (i == queryVector.array.size()) {
+					Sparse sparse = new Sparse<Integer>(wordIndex, 1);
+					queryVector.array.add(i, sparse);
+					break;
+				} else if (queryVector.array.get(i).index == wordIndex) {
+					queryVector.array.get(i).value++;
+					break;
+				} else if (queryVector.array.get(i).index > wordIndex) {
+					Sparse sparse = new Sparse<Integer>(wordIndex, 1);
+					queryVector.array.add(i, sparse);
+					break;
+				}
 			}
+
 		}
 
-		float[] queryTfidfVector = new float[map.size()];
-		for (int j = 0; j < map.size(); j++) {
-			if (queryVector[j] == 0)
-				continue;
+		SparseArray<Float> queryTfidfVector = new SparseArray<Float>();
+
+		float max = 0;
+		for (Sparse<Integer> sparse : queryVector.array) {
+			max = Math.max(max, sparse.value);
+		}
+		for (Sparse<Integer> sparse : queryVector.array) {
+			int index = sparse.index;
+			int value = sparse.value;
 			switch (Static.weightingScheme) {
 			case 1:
-				float max = 0;
-				for (float q : queryVector) {
-					max = Math.max(max, q);
-				}
-				queryTfidfVector[j] = (float) ((0.5 + (float)queryVector[j] / (2 * max)) * Math.log10((float)(numberOfDocs) / nt[j]));
+				queryTfidfVector.array.add(new Sparse<Float>(index, (float) ((0.5 + (float) sparse.value / (2 * max))
+						* Math.log10((float) (numberOfDocs) / nt[index]))));
 				break;
 			case 2:
-				queryTfidfVector[j] = (float) Math.log10(1 + (float)(numberOfDocs) / nt[j]);
+
+				queryTfidfVector.array
+						.add(new Sparse<Float>(index, (float) Math.log10(1 + (float) (numberOfDocs) / nt[index])));
 				break;
 			case 3:
-				queryTfidfVector[j] = (float) ((1 + Math.log10(queryVector[j])) * Math.log10((float)(numberOfDocs) / nt[j]));
+				queryTfidfVector.array.add(new Sparse<Float>(index,
+						(float) ((1 + Math.log10(sparse.value)) * Math.log10((float) (numberOfDocs) / nt[index]))));
 				break;
 			}
-
 		}
 
-		float[] similarity = new float[articles.size()];
-		for (int i = 0; i < articles.size(); i++) {
-			// check articles[i].articleNumber - 1
-			float[] tfidfVector = tfidfVectors[articles.get(i).articleNumber - 1];
-			float tmp = 0;
-			for (int j = 0; j < tfidfVector.length; j++) {
-				tmp += tfidfVector[j] * queryTfidfVector[j];
-			}
-			float sizeTfidfVector = size(tfidfVector);
-			float sizeQueryTfidfVector = size(queryTfidfVector);
-			tmp /= ((float)sizeTfidfVector * (float)sizeQueryTfidfVector);
-			similarity[i] = tmp;
-		}
-
-		MaxHeap maxHeap = new MaxHeap(similarity);
-		int[] sortedArticlesIndexes = maxHeap.heapSort(Static.selectedNumber); // this returns article indexes from 0 to
-																		// similarity.length - 1
-
-		ArrayList<Article> sortedArticles = new ArrayList<>();
-
-		for (int i : sortedArticlesIndexes) {
-			sortedArticles.add(articles.get(i));
-		}
-
-		return new PostingList("", sortedArticles);
+		return queryTfidfVector;
 	}
 
-	private float size(float[] arr) {
+	private float size(SparseArray<Float> arrayList) {
 		float result = 0;
-		for (int i = 0; i < arr.length; i++) {
-			result += Math.pow(arr[i], 2);
+		for (Sparse<Float> sparse : arrayList.array) {
+			result += Math.pow(sparse.value, 2);
 		}
 		if (result == 0)
 			return (float) 0.001;
@@ -385,7 +616,22 @@ public class RankedSearch implements DataStructure {
 
 	private void updateVector(int articleIndex, String word) {
 		int wordIndex = map.get(word);
-		vectors[articleIndex][wordIndex]++;
+		SparseArray<Integer> vector = vectors[articleIndex];
+		for (int i = 0; i <= vector.array.size(); i++) {
+			if (i == vector.array.size()) {
+				Sparse sparse = new Sparse<Integer>(wordIndex, 1);
+				vector.array.add(i, sparse);
+				break;
+			}
+			if (vector.array.get(i).index == wordIndex) {
+				vector.array.get(i).value++;
+				break;
+			} else if (vector.array.get(i).index > wordIndex) {
+				Sparse sparse = new Sparse<Integer>(wordIndex, 1);
+				vector.array.add(i, sparse);
+				break;
+			}
+		}
 	}
 
 	private void addWord(String word, int articleNumber, int position) {
@@ -687,6 +933,61 @@ public class RankedSearch implements DataStructure {
 
 		}
 		return newPostingList;
+	}
+
+	private PostingList interSection(PostingList pls, ArrayList<Integer> selective1, ArrayList<Integer> selective2) {
+		ArrayList<Integer> selective = interSection(selective1, selective2);
+		return interSection(pls, selective);
+	}
+
+	private PostingList interSection(PostingList pstList, ArrayList<Integer> selective) {
+
+		PostingList newPostingList = new PostingList("", new ArrayList<Article>());
+		if (pstList == null || selective == null)
+			return null;
+
+		int x = 0;
+		int y = 0;
+		while (x < pstList.articles.size() && y < selective.size()) {
+			Article article = pstList.articles.get(x);
+			int select = selective.get(y);
+			if (article.articleNumber == select) {
+				// ArrayList<Integer> newPositions = new ArrayList<Integer>();
+				// for (Integer integer : article.positions)
+				// newPositions.add(integer);
+				// Article newArticle = new Article(article.articleNumber, newPositions);
+				newPostingList.articles.add(article);
+				x++;
+				y++;
+			} else if (article.articleNumber < select)
+				x++;
+			else
+				y++;
+		}
+		return newPostingList;
+	}
+
+	private ArrayList<Integer> interSection(ArrayList<Integer> selective1, ArrayList<Integer> selective2) {
+
+		ArrayList<Integer> newSelective = new ArrayList<Integer>();
+		if (selective1 == null || selective2 == null)
+			return null;
+
+		int x = 0;
+		int y = 0;
+		while (x < selective1.size() && y < selective2.size()) {
+			int select1 = selective1.get(x);
+			int select2 = selective2.get(y);
+			if (select1 == select2) {
+				newSelective.add(select1);
+				x++;
+				y++;
+			} else if (select1 < select2)
+				x++;
+			else
+				y++;
+		}
+		return newSelective;
 	}
 
 	@Override

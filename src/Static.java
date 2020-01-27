@@ -26,7 +26,7 @@ public class Static {
 	}
 	
 	public static boolean rankedSearch = true;
-	public static int weightingScheme = 1;	//3=normal
+	public static int weightingScheme = 3;	//3=normal
 	
 	public static String mainFile = "News/IR-F19-Project01-Input.xls";
 	public static String stopWordsFile = "News/stopWords.txt";
@@ -35,5 +35,4 @@ public class Static {
 	public static String tarkibiPorkarbordFile = "News/tarkibi_porkarbord.txt";
 	
 	public static int selectedNumber = 8000;
-	
 }
