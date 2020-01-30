@@ -47,8 +47,9 @@ public class HTTPServer {
 
 		System.out.println("Server started on port 8080");
 
-		Static.searchEngine.build(new File(Static.mainFile), new File(Static.stopWordsFile),
+		Static.searchEngine.build(Static.mainFiles, new File(Static.stopWordsFile),
 				new File(Static.hamsanSazFile), new File(Static.abbreviationFile), new File(Static.tarkibiPorkarbordFile));
+
 	}
 }
 
@@ -137,10 +138,11 @@ class JSONHandler implements HttpHandler {
 			////////////////////////////// enter your code here
 			PostingList pstL = Static.searchEngine.search(body);
 			String outputHtml = new String();
-			if (pstL == null) {
+			int count = 0;
+			if(pstL == null) {
 				pstL = new PostingList("", new ArrayList<Article>());
 			}
-			int count = 0;
+			ArrayList<String> tableResult = new ArrayList<String>();
 			for (Article a : pstL.articles) {
 				count++;
 				System.out.println(a.articleNumber);
@@ -157,13 +159,6 @@ class JSONHandler implements HttpHandler {
 				// converting tarkibiPorkarbord words into it's common shape
 				for (String s : Static.tarkibiPorkarbord) {
 					text = text.replaceAll(s, s.replace(" ", ""));
-				}
-				
-				// مخفف converting ج.ا to جمهوری اسلامی
-				for (int i = 0; i < Static.wrongAbbreviation.size() ; i++) {
-					String wrong = Static.wrongAbbreviation.get(i);
-					String correct = Static.correctAbbreviation.get(i);
-					text = text.replaceAll(wrong, correct);
 				}
 
 				WordTokenizer tokenizer = new WordTokenizer();
@@ -198,20 +193,13 @@ class JSONHandler implements HttpHandler {
 						Static.getRowCell(a.articleNumber, 1), "http://localhost:8080/" + a.articleNumber,
 						Static.getRowCell(a.articleNumber, 2), partString, Static.getRowCell(a.articleNumber, 0));
 
-				outputHtml += res;
+//				outputHtml += res;
+				tableResult.add(res.replace("\"","\\\""));
 
 			}
-			String numberOfCounts;
-			if (count == 0) {
-				numberOfCounts = "<h2>no articles found</h2>";
-			}
-			else if (count == 1) {
-				numberOfCounts = "<h2>1article found</h2>";
-			}
-			else {
-				numberOfCounts = "<h2>" + count + "articles found</h2>";
-			}
-			outputHtml = numberOfCounts + outputHtml;
+			String numberOfCounts = "<h2>"+count+" articeles found</h2>";
+			outputHtml = String.format("{\"header\":\"%s\", \"tables\":[\"%s\"]}",
+					numberOfCounts, String.join("\",\"", tableResult));
 			//////////////////////////////////////
 			exchange.getResponseHeaders().set(Constants.CONTENTTYPE, Constants.APPLICATIONJSON);
 			exchange.sendResponseHeaders(200, 0);
@@ -236,7 +224,15 @@ class JSONHandler implements HttpHandler {
 		}
 		return "";
 	}
+	
+	@SuppressWarnings("unchecked")
+	private String toJSON(String requestBody) {
+		
+		return "";
+	}
 }
+
+
 
 class NotImplementedHandler implements HttpHandler {
 	public void handle(HttpExchange exchange) throws IOException {

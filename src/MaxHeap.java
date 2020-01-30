@@ -60,7 +60,32 @@ public class MaxHeap{
 			
 	}
 	
-	public int[] heapSort(int k) {
+	public float[] heapSortValues(int k) {
+		if (k > heap.length) {
+			k = heap.length;
+		}
+		float[] sorted = new float[k];
+		int[] sortedIndexes = new int[k];
+		
+		int i = 0;
+		for (; i < k; i++) {
+			if (heap[0] <= 0)
+				break;
+			
+			sorted[i] = heap[0];
+			sortedIndexes[i] = articles[0];
+			
+			heap[0] = heap[currentIndex - i];
+			articles[0] = articles[currentIndex - i];
+			heapify(0, currentIndex - i - 1);
+		}
+		
+		int[] nonZeroSortedArticles = removeZeroes(sortedIndexes, i);
+		
+		return sorted;
+	}
+	
+	public int[] heapSortIndexes(int k) {
 		if (k > heap.length) {
 			k = heap.length;
 		}

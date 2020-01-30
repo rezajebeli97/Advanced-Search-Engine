@@ -27,8 +27,9 @@ public class Array implements DataStructure {
 	ArrayList<String> wrongAbbreviation = new ArrayList<String>();
 
 	@Override
-	public void build(File mainFile, File stopWordsFile, File hamsansazFile, File abbreviationFile, File tarkibiPorkarbordFile) {
+	public void build(File[] mainFiles, File stopWordsFile, File hamsansazFile, File abbreviationFile, File tarkibiPorkarbordFile) {
 
+		File mainFile = mainFiles[0];
 		// generating stopwords array
 		try {
 			Scanner scr = new Scanner(stopWordsFile);
@@ -72,11 +73,11 @@ public class Array implements DataStructure {
 
 			POIFSFileSystem fs = new POIFSFileSystem(new FileInputStream(mainFile));
 			HSSFWorkbook wb = new HSSFWorkbook(fs);
-			Static.sheet = wb.getSheetAt(0);
+			Static.sheet[0] = wb.getSheetAt(0);
 			HSSFRow row;
 			HSSFCell cell;
 
-			numberOfRows = Static.sheet.getPhysicalNumberOfRows(); // No of rows
+			numberOfRows = Static.sheet[0].getPhysicalNumberOfRows(); // No of rows
 			System.out.println("num of docs : " + (numberOfRows -1));
 
 			int cols = 0; // No of columns
@@ -85,9 +86,9 @@ public class Array implements DataStructure {
 			// This trick ensures that we get the data properly even if it doesn't start
 			// from first few rows
 			for (int i = 0; i < 10 || i < numberOfRows; i++) {
-				row = Static.sheet.getRow(i);
+				row = Static.sheet[0].getRow(i);
 				if (row != null) {
-					tmp = Static.sheet.getRow(i).getPhysicalNumberOfCells();
+					tmp = Static.sheet[0].getRow(i).getPhysicalNumberOfCells();
 					if (tmp > cols)
 						cols = tmp;
 				}
@@ -98,7 +99,7 @@ public class Array implements DataStructure {
 			Lemmatizer lemmatizer = new Lemmatizer();
 
 			for (int r = 1; r < numberOfRows; r++) {
-				row = Static.sheet.getRow(r);
+				row = Static.sheet[0].getRow(r);
 				if (row != null) {
 					int c = 5; // choosing content column // for (int c = 0; c < cols; c++) {
 					cell = row.getCell((short) c);

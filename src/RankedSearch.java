@@ -10,8 +10,10 @@ import java.util.Scanner;
 
 import org.apache.poi.hssf.usermodel.HSSFCell;
 import org.apache.poi.hssf.usermodel.HSSFRow;
+import org.apache.poi.hssf.usermodel.HSSFSheet;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.poifs.filesystem.POIFSFileSystem;
+import org.apache.poi.ss.usermodel.Sheet;
 import org.jsoup.Jsoup;
 
 import jhazm.Lemmatizer;
@@ -19,23 +21,25 @@ import jhazm.Normalizer;
 import jhazm.tokenizer.WordTokenizer;
 
 public class RankedSearch implements DataStructure {
-	public int numberOfRows;
-	public int numberOfDocs;
+	public int numOfRows = 2;
+	public int numOfDocs = 0;
 	ArrayList<PostingList> dictionary = new ArrayList<PostingList>();
 	HashMap<String, Integer> map = new HashMap<>();
 	ArrayList<String> stopWords = new ArrayList<String>();
 	ArrayList<String> correctHamsansaz = new ArrayList<String>();
 	ArrayList<String> wrongHamsansaz = new ArrayList<String>();
+	ArrayList<Integer>[] categories = new ArrayList[8];
 
 	SparseArray<Integer>[] vectors;
 	SparseArray<Float>[] tfidfVectors;
 	int[] nt; // how many doc contains word t?
-	private int numOfClusteringIterations = 10;
 	private Cluster[] clusters;
 
 	@Override
-	public void build(File mainFile, File stopWordsFile, File hamsansazFile, File abbreviationFile,
+	public void build(File[] mainFiles, File stopWordsFile, File hamsansazFile, File abbreviationFile,
 			File tarkibiPorkarbordFile) {
+		
+		Static.sheet = new HSSFSheet[15];
 
 		generateStopWords(stopWordsFile);
 
@@ -45,145 +49,51 @@ public class RankedSearch implements DataStructure {
 
 		generateTarkibiPorkarbordWords(tarkibiPorkarbordFile);
 
+		generateCategories(Static.categoryFiles);
+
 		try {
-
-			POIFSFileSystem fs = new POIFSFileSystem(new FileInputStream(mainFile));
-			HSSFWorkbook wb = new HSSFWorkbook(fs);
-			Static.sheet = wb.getSheetAt(0);
-			HSSFRow row;
-			HSSFCell cell;
-
-			numberOfRows = Static.sheet.getPhysicalNumberOfRows(); // No of rows
-			numberOfDocs = numberOfRows - 1;
-			System.out.println("num of docs : " + numberOfDocs);
-			System.out.println();
-
-			int cols = 0; // No of columns
-			int tmp = 0;
-
-			// This trick ensures that we get the data properly even if it doesn't start
-			// from first few rows
-			for (int i = 0; i < 10 || i < numberOfRows; i++) {
-				row = Static.sheet.getRow(i);
-				if (row != null) {
-					tmp = Static.sheet.getRow(i).getPhysicalNumberOfCells();
-					if (tmp > cols)
-						cols = tmp;
-				}
-			}
 
 			Normalizer normalizer = new Normalizer();
 			WordTokenizer tokenizer = new WordTokenizer();
 			Lemmatizer lemmatizer = new Lemmatizer();
-
-			for (int r = 1; r < numberOfRows; r++) {
-				row = Static.sheet.getRow(r);
-				if (row != null) {
-					int c = 5; // choosing content column // for (int c = 0; c < cols; c++) {
-					cell = row.getCell((short) c);
-
-					if (cell != null) {
-						int position = 0;
-						String rawText = cell.getRichStringCellValue().getString();
-						String noTag = Jsoup.parse(rawText).text();
-
-						String noPunctuationTemp = noTag.replaceAll("\\p{Punct}", "");
-
-						String noPunctuation = noPunctuationTemp.replaceAll("،", "");
-
-						String normalized = normalizer.run(noPunctuation);
-
-						// converting tarkibiPorkarbord words into it's common shape
-						for (String s : Static.tarkibiPorkarbord) {
-							normalized = normalized.replaceAll(s, s.replace(" ", ""));
-						}
-						// مخفف converting ج.ا to جمهوری اسلامی
-						for (int i = 0; i < Static.wrongAbbreviation.size(); i++) {
-							String wrong = Static.wrongAbbreviation.get(i);
-							String correct = Static.correctAbbreviation.get(i);
-							normalized = normalized.replaceAll(wrong, correct);
-						}
-
-						List<String> tokens = tokenizer.tokenize(normalized);
-
-						for (String s : tokens) {
-							String word = lemmatizer.lemmatize(s);
-							// stopword
-							if (stopWords.contains(word)) {
-								position++;
-								continue;
-							}
-							// همسان ساز
-							if (wrongHamsansaz.contains(word)) {
-								word = correctHamsansaz.get(wrongHamsansaz.indexOf(word));
-							}
-
-							addWord(word, r, position);
-							position++;
-						}
-					}
-				}
+			POIFSFileSystem fs;
+			HSSFWorkbook wb = null;
+				
+			
+			for (int i = 0; i < 1; i++) {
+				fs = new POIFSFileSystem(new FileInputStream(mainFiles[i]));
+				wb = new HSSFWorkbook(fs);
+				Static.sheet[i] = wb.getSheetAt(0);
+				int cumulativeNumOfDocs = addWordsOfFile(normalizer, tokenizer, lemmatizer, Static.sheet[i], numOfDocs);
+				numOfDocs += cumulativeNumOfDocs;
+				numOfRows += cumulativeNumOfDocs;
+				System.out.println("file[" + i + "] added to dictionary");
+				System.out.println("num of unique words : " + map.size());
+				System.out.println();
 			}
 
-			System.out.println("Dictionary Built");
+			System.out.println("dictionary built");
 			System.out.println("num of unique words : " + map.size());
 			System.out.println();
-
-			vectors = new SparseArray[numberOfDocs];
+			
+			vectors = new SparseArray[numOfDocs];
 			for (int i = 0; i < vectors.length; i++) {
 				vectors[i] = new SparseArray<Integer>();
 			}
 			nt = new int[map.size()];
 
-			for (int r = 1; r < numberOfRows; r++) {
-				row = Static.sheet.getRow(r);
-				if (row != null) {
-					int c = 5; // choosing content column // for (int c = 0; c < cols; c++) {
-					cell = row.getCell((short) c);
-
-					if (cell != null) {
-						String rawText = cell.getRichStringCellValue().getString();
-						String noTag = Jsoup.parse(rawText).text();
-
-						String noPunctuationTemp = noTag.replaceAll("\\p{Punct}", "");
-
-						String noPunctuation = noPunctuationTemp.replaceAll("،", "");
-
-						String normalized = normalizer.run(noPunctuation);
-
-						// converting tarkibiPorkarbord words into it's common shape
-						for (String s : Static.tarkibiPorkarbord) {
-							normalized = normalized.replaceAll(s, s.replace(" ", ""));
-						}
-
-						// مخفف converting ج.ا to جمهوری اسلامی
-						for (int i = 0; i < Static.wrongAbbreviation.size(); i++) {
-							String wrong = Static.wrongAbbreviation.get(i);
-							String correct = Static.correctAbbreviation.get(i);
-							normalized = normalized.replaceAll(wrong, correct);
-						}
-
-						List<String> tokens = tokenizer.tokenize(normalized);
-
-						for (String s : tokens) {
-							String word = lemmatizer.lemmatize(s);
-							// stopword
-							if (stopWords.contains(word))
-								continue;
-							// همسان ساز
-							if (wrongHamsansaz.contains(word)) {
-								word = correctHamsansaz.get(wrongHamsansaz.indexOf(word));
-							}
-							updateVector(r - 1, word);
-						}
-					}
-				}
+			numOfDocs = 0;
+			numOfRows = 2;
+			for (int i = 0; i < 1; i++) {
+				int cumulativeNumOfDocs = buildVectorsOfFile(normalizer, tokenizer, lemmatizer, Static.sheet[i], numOfDocs);
+				numOfDocs += cumulativeNumOfDocs;
+				numOfRows += cumulativeNumOfDocs;
 			}
 
 			updateNt();
 
 			// generating tfidf
-			tfidfVectors = new SparseArray[numberOfDocs];
+			tfidfVectors = new SparseArray[numOfDocs];
 			for (int i = 0; i < tfidfVectors.length; i++) {
 				tfidfVectors[i] = new SparseArray<Float>();
 			}
@@ -195,14 +105,14 @@ public class RankedSearch implements DataStructure {
 					switch (Static.weightingScheme) {
 					case 1:
 						tfidfVectors[i].array.add(new Sparse<Float>(index,
-								(float) (value * Math.log10((float) (numberOfDocs) / nt[index]))));
+								(float) (value * Math.log10((float) (numOfDocs) / nt[index]))));
 						break;
 					case 2:
 						tfidfVectors[i].array.add(new Sparse<Float>(index, (float) (1 + Math.log10(value))));
 						break;
 					case 3:
 						tfidfVectors[i].array.add(new Sparse<Float>(index,
-								(float) ((1 + Math.log10(value)) * Math.log10((float) (numberOfDocs) / nt[index]))));
+								(float) ((1 + Math.log10(value)) * Math.log10((float) (numOfDocs) / nt[index]))));
 						break;
 					}
 				}
@@ -215,21 +125,168 @@ public class RankedSearch implements DataStructure {
 		System.out.println();
 
 		// TODO
-		clustering(7);
+		clustering(Static.numOfClusters);
 		System.out.println("Clustering Finished");
 		for (Cluster cluster : clusters) {
 			System.out.println(cluster.indexes.size());
 		}
 	}
 
+	private int buildVectorsOfFile(Normalizer normalizer, WordTokenizer tokenizer, Lemmatizer lemmatizer, HSSFSheet sheet, int previousDocs) {
+		HSSFRow row = null;
+		HSSFCell cell = null;
+		
+		int numberOfRows = sheet.getPhysicalNumberOfRows(); // No of rows
+		int numberOfDocs = numberOfRows - 2;
+		for (int r = 2; r < numberOfRows; r++) {
+			row = sheet.getRow(r);
+			if (row != null) {
+				int c = 5; // choosing content column // for (int c = 0; c < cols; c++) {
+				cell = row.getCell((short) c);
+
+				if (cell != null) {
+					String rawText = cell.getRichStringCellValue().getString();
+					String noTag = Jsoup.parse(rawText).text();
+
+					String noPunctuationTemp = noTag.replaceAll("\\p{Punct}", "");
+
+					String noPunctuation = noPunctuationTemp.replaceAll("،", "");
+
+					String normalized = normalizer.run(noPunctuation);
+
+					// converting tarkibiPorkarbord words into it's common shape
+					for (String s : Static.tarkibiPorkarbord) {
+						normalized = normalized.replaceAll(s, s.replace(" ", ""));
+					}
+
+					// مخفف converting ج.ا to جمهوری اسلامی
+					for (int i = 0; i < Static.wrongAbbreviation.size(); i++) {
+						String wrong = Static.wrongAbbreviation.get(i);
+						String correct = Static.correctAbbreviation.get(i);
+						normalized = normalized.replaceAll(wrong, correct);
+					}
+
+					List<String> tokens = tokenizer.tokenize(normalized);
+
+					for (String s : tokens) {
+						String word = lemmatizer.lemmatize(s);
+						// stopword
+						if (stopWords.contains(word))
+							continue;
+						// همسان ساز
+						if (wrongHamsansaz.contains(word)) {
+							word = correctHamsansaz.get(wrongHamsansaz.indexOf(word));
+						}
+						updateVector(r - 2 + previousDocs, word);
+					}
+				}
+			}
+		}
+		return numberOfDocs;
+	}
+
+	private int addWordsOfFile(Normalizer normalizer, WordTokenizer tokenizer, Lemmatizer lemmatizer, HSSFSheet sheet, int previousDocs) {
+		HSSFRow row = null;
+		HSSFCell cell = null;
+
+		int numberOfRows = sheet.getPhysicalNumberOfRows(); // No of rows
+		int numberOfDocs = numberOfRows - 2;
+		System.out.println("num of docs : " + numberOfDocs);
+		System.out.println();
+
+		int cols = 0; // No of columns
+		int tmp = 0;
+
+		// This trick ensures that we get the data properly even if it doesn't start
+		// from first few rows
+		for (int i = 0; i < 10 || i < numberOfRows; i++) {
+			row = sheet.getRow(i);
+			if (row != null) {
+				tmp = sheet.getRow(i).getPhysicalNumberOfCells();
+				if (tmp > cols)
+					cols = tmp;
+			}
+		}
+
+		for (int r = 2; r < numberOfRows; r++) {
+			row = sheet.getRow(r);
+			if (row != null) {
+				int c = 5; // choosing content column // for (int c = 0; c < cols; c++) {
+				cell = row.getCell((short) c);
+
+				if (cell != null) {
+					int position = 0;
+					String rawText = cell.getRichStringCellValue().getString();
+					String noTag = Jsoup.parse(rawText).text();
+
+					String noPunctuationTemp = noTag.replaceAll("\\p{Punct}", "");
+
+					String noPunctuation = noPunctuationTemp.replaceAll("،", "");
+
+					String normalized = normalizer.run(noPunctuation);
+
+					// converting tarkibiPorkarbord words into it's common shape
+					for (String s : Static.tarkibiPorkarbord) {
+						normalized = normalized.replaceAll(s, s.replace(" ", ""));
+					}
+					// مخفف converting ج.ا to جمهوری اسلامی
+					for (int i = 0; i < Static.wrongAbbreviation.size(); i++) {
+						String wrong = Static.wrongAbbreviation.get(i);
+						String correct = Static.correctAbbreviation.get(i);
+						normalized = normalized.replaceAll(wrong, correct);
+					}
+
+					List<String> tokens = tokenizer.tokenize(normalized);
+
+					for (String s : tokens) {
+						String word = lemmatizer.lemmatize(s);
+						// stopword
+						if (stopWords.contains(word)) {
+							position++;
+							continue;
+						}
+						// همسان ساز
+						if (wrongHamsansaz.contains(word)) {
+							word = correctHamsansaz.get(wrongHamsansaz.indexOf(word));
+						}
+
+						addWord(word, r + previousDocs, position);
+						position++;
+					}
+				}
+			}
+		}
+		return numberOfDocs;
+
+	}
+
+	private void generateCategories(File[] categoryFiles) {
+		for (int i = 0; i < categories.length; i++) {
+			categories[i] = new ArrayList<Integer>();
+		}
+		try {
+			for (int i = 0; i < categoryFiles.length; i++) {
+				File category = categoryFiles[i];
+				Scanner scr = new Scanner(category);
+				while (scr.hasNextLine()) {
+					String index = scr.nextLine();
+					categories[i].add(Integer.parseInt(index));
+				}
+			}
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+
+	}
+
 	private void clustering(int k) { // k = num of clusters
 		clusters = new Cluster[k];
 		for (int i = 0; i < k; i++) {
 			clusters[i] = new Cluster();
-			int centroidIndex = (int) (Math.random() * numberOfDocs);
+			int centroidIndex = (int) (Math.random() * numOfDocs);
 			clusters[i].centroid = tfidfVectors[centroidIndex];
 		}
-		for (int iteration = 0; iteration < numOfClusteringIterations; iteration++) {
+		for (int iteration = 0; iteration < Static.numOfClusteringIterations; iteration++) {
 			for (int i = 0; i < clusters.length; i++) {
 				clusters[i].indexes = new ArrayList<>();
 			}
@@ -338,7 +395,7 @@ public class RankedSearch implements DataStructure {
 
 	private void zipfLaw() {
 		MaxHeapInt maxHeap = new MaxHeapInt(nt);
-		int[] res = maxHeap.heapSort(1000);
+		int[] res = maxHeap.heapSortValues(1000);
 
 		for (int i : res) {
 			System.out.println(i);
@@ -382,13 +439,13 @@ public class RankedSearch implements DataStructure {
 			ArrayList<Integer> clusterSet = clusters[bestClusterIndex].indexes;
 
 			// TODO: after developing cat
-			//ArrayList<Integer> classificationSet = getIndexesOfClass(queryCategory);
+			ArrayList<Integer> classificationSet = getIndexesOfClass(queryCategory);
 
-			PostingList selectedPstList = interSection(postingList, null/*classificationSet*/, clusterSet);
+			PostingList selectedPstList = interSection(postingList,  classificationSet, clusterSet);
 			if (selectedPstList == null)
 				return null;
-			return rankArticles(strs, selectedPstList.articles);
-			
+			return rankArticles(queryTfidfVector, selectedPstList.articles);
+
 		} else {
 			PostingList postingList = search3(myString);
 			String[] strs = tokenizeRanked(myString);
@@ -398,16 +455,40 @@ public class RankedSearch implements DataStructure {
 			PostingList selectedPstList = interSection(postingList, clusterSet);
 			if (selectedPstList == null)
 				return null;
-			return rankArticles(strs, selectedPstList.articles);
+			return rankArticles(queryTfidfVector, selectedPstList.articles);
 		}
+	}
 
-		/////////////////////////
+	private ArrayList<Integer> getIndexesOfClass(String queryCategory) {
+		switch (queryCategory) {
+		case "sc":
+			return categories[0];
 
-		// PostingList postingList = search3(myString);
-		//
-		// if (postingList == null)
-		// return null;
-		// return rankArticles(myString, postingList.articles);
+		case "c":
+			return categories[1];
+
+		case "p":
+			return categories[2];
+
+		case "e":
+			return categories[3];
+
+		case "so":
+			return categories[4];
+
+		case "i":
+			return categories[5];
+
+		case "sp":
+			return categories[6];
+
+		case "m":
+			return categories[7];
+
+		default:
+			System.out.println("error");
+		}
+		return null;
 	}
 
 	private int bestClusterIndex(SparseArray<Float> tfIdfVector) {
@@ -464,6 +545,8 @@ public class RankedSearch implements DataStructure {
 			PostingList pl = search3(subString);
 			result = not(pl);
 		} else if (singleWord(myString)) {
+			String[] strs = tokenize(myString);
+			myString = strs[0];
 			Lemmatizer lemmatize = null;
 			try {
 				lemmatize = new Lemmatizer();
@@ -488,7 +571,7 @@ public class RankedSearch implements DataStructure {
 
 	}
 
-	public PostingList rankArticles(String[] strs, ArrayList<Article> articles) {
+	public PostingList rankArticles(SparseArray<Float> queryTfidfVector, ArrayList<Article> articles) {
 
 		// Normalizer normal = new Normalizer();
 		//
@@ -505,12 +588,10 @@ public class RankedSearch implements DataStructure {
 
 		// String[] strs = tokenizeRanked(myString);
 
-		SparseArray<Float> queryTfidfVector = computeTfIdf(strs);
-
 		float[] similarity = new float[articles.size()];
 		for (int i = 0; i < articles.size(); i++) {
 			// check articles[i].articleNumber - 1
-			SparseArray<Float> tfidfVector = tfidfVectors[articles.get(i).articleNumber - 1];
+			SparseArray<Float> tfidfVector = tfidfVectors[articles.get(i).articleNumber - 2];
 			float tmp = similaritySparse(tfidfVector, queryTfidfVector);
 			// float sizeTfidfVector = size(tfidfVector);
 			// float sizeQueryTfidfVector = size(queryTfidfVector);
@@ -519,7 +600,8 @@ public class RankedSearch implements DataStructure {
 		}
 
 		MaxHeap maxHeap = new MaxHeap(similarity);
-		int[] sortedArticlesIndexes = maxHeap.heapSort(Static.selectedNumber); // this returns article indexes from 0 to
+		int[] sortedArticlesIndexes = maxHeap.heapSortIndexes(Static.selectedNumber); // this returns article indexes
+																						// from 0 to
 		// similarity.length - 1
 
 		ArrayList<Article> sortedArticles = new ArrayList<>();
@@ -586,16 +668,16 @@ public class RankedSearch implements DataStructure {
 			switch (Static.weightingScheme) {
 			case 1:
 				queryTfidfVector.array.add(new Sparse<Float>(index, (float) ((0.5 + (float) sparse.value / (2 * max))
-						* Math.log10((float) (numberOfDocs) / nt[index]))));
+						* Math.log10((float) (numOfDocs) / nt[index]))));
 				break;
 			case 2:
 
 				queryTfidfVector.array
-						.add(new Sparse<Float>(index, (float) Math.log10(1 + (float) (numberOfDocs) / nt[index])));
+						.add(new Sparse<Float>(index, (float) Math.log10(1 + (float) (numOfDocs) / nt[index])));
 				break;
 			case 3:
 				queryTfidfVector.array.add(new Sparse<Float>(index,
-						(float) ((1 + Math.log10(sparse.value)) * Math.log10((float) (numberOfDocs) / nt[index]))));
+						(float) ((1 + Math.log10(sparse.value)) * Math.log10((float) (numOfDocs) / nt[index]))));
 				break;
 			}
 		}
@@ -793,7 +875,11 @@ public class RankedSearch implements DataStructure {
 	}
 
 	private boolean singleWord(String myString) {
-		if (myString.contains(" ")) {
+		String[] strs = tokenize(myString);
+		if (strs.length == 1) {
+			return true;
+		}
+		else if (myString.contains(" ")) {
 			return false;
 		}
 		return true;
@@ -1042,7 +1128,7 @@ public class RankedSearch implements DataStructure {
 			}
 		}
 		for (int j = postingList.articles.get(postingList.articles.size() - 1).articleNumber
-				+ 1; j <= numberOfRows; j++) { // from [last] article ill the last article
+				+ 1; j <= numOfRows; j++) { // from [last] article ill the last article
 			Article article = new Article(j, new ArrayList<Integer>());
 			newPostingList.articles.add(article);
 		}

@@ -107,9 +107,16 @@
         </svg>
     </div>
 
+    <div id="header">
+    </div>
     <div id="result">
     </div>
+    <div id="buttons">
+        
+
+    </div>
     <script>
+        var data = [];
         function runScript(e) {
             if (e.keyCode == 13) {
                 postJSON();
@@ -126,13 +133,24 @@
                 },
                 body: JSON.stringify(body)
             }).then(function (response) {
-                return response.text()
+                return response.json()
             }).then(function (html) {
                 console.log(html)
-                document.querySelector("#result").innerHTML = html;
+                let page = 0;
+                document.querySelector("#header").innerHTML = html.header;
+                data = html;
+                document.querySelector('#buttons').innerHTML = [...Array(parseInt(html.tables.length/10)+1).keys()]
+                .map((i)=>`<button id="page" name="page" onclick="myFunction(${i})">${i+1}</button>`);
+                myFunction(0);
             });
+        }
+        function myFunction(i){
+            document.querySelector('#result').innerHTML = '';
+            document.querySelector('#result').innerHTML = data.tables.slice(i*10,i* 10 + 10).join('');
         }
     </script>
 </body>
+
+
 
 </html>

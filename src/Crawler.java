@@ -1,11 +1,14 @@
 import java.awt.List;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.StringReader;
+import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
+import java.net.URLEncoder;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Scanner;
@@ -33,6 +36,11 @@ import org.xml.sax.SAXException;
 //import org.w3c.dom.Element;
 import java.io.File;
 import com.sun.org.apache.xml.internal.security.utils.*;
+
+import org.apache.poi.hssf.usermodel.HSSFCell;
+import org.apache.poi.hssf.usermodel.HSSFRow;
+import org.apache.poi.hssf.usermodel.HSSFSheet;
+import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
@@ -42,86 +50,6 @@ import java.util.TimerTask;
 public class Crawler {
 	public static void main(String argv[])
 			throws IOException, ParserConfigurationException, XPathExpressionException {
-//	    	
-//	    	URL url = new URL("https://www.khabaronline.ir/rss");
-//	    	DocumentBuilder builder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
-//	    	InputSource src = new InputSource();
-//	    	src.setByteStream(url.openStream());
-//
-//	    	org.w3c.dom.Document doc = builder.parse(src);
-//	    	String age = doc.getElementsByTagName("link").item(5).getTextContent();
-//	    	System.out.println(age);
-
-//	    	URL url = new URL("https://www.khabaronline.ir/news/1345210/%D8%B3%D9%81%D8%B1-%DA%86%D9%86%D8%AF-%D9%87%D8%B2%D8%A7%D8%B1-%D8%AF%D9%84%D8%A7%D8%B1%DB%8C-%D9%86%D9%85%D8%A7%DB%8C%D9%86%D8%AF%DA%AF%D8%A7%D9%86-%D8%A7%DB%8C%D8%B1%D8%A7%D9%86-%D8%A8%D9%87-%D9%85%D9%82%D8%B1-AFC-%D8%A8%D8%B1%D8%A7%DB%8C-%D8%AE%D8%AF%D8%B4%D9%87-%D8%AF%D8%A7%D8%B1-%D8%B4%D8%AF%D9%86");
-//	    	URLConnection uc = url.openConnection();
-//	    	uc.setRequestProperty("User-Agent", "Karayel's rss reader");
-//	    	DocumentBuilder builder2 = DocumentBuilderFactory.newInstance().newDocumentBuilder();
-		// InputSource src2 = new InputSource();
-		// src2.setByteStream(uc.openStream());
-//	    	builder2.setErrorHandler(new ErrorHandler() {
-//				
-//				@Override
-//				public void warning(SAXParseException exception) throws SAXException {
-//					// TODO Auto-generated method stub
-//					
-//				}
-//				
-//				@Override
-//				public void fatalError(SAXParseException exception) throws SAXException {
-//					// TODO Auto-generated method stub
-//					System.out.println("123");
-//				}
-//				
-//				@Override
-//				public void error(SAXParseException exception) throws SAXException {
-//					// TODO Auto-generated method stub
-//					
-//				}
-//			});
-
-//	    	builder2.setEntityResolver(new EntityResolver() {
-//	            @Override
-//	            public InputSource resolveEntity(String publicId, String systemId)
-//	                    throws SAXException, IOException {
-//	            	System.out.println("23" + systemId);
-//	                if (systemId.contains("foo.dtd")) {
-//	                    return new InputSource(new StringReader(""));
-//	                } else {
-//	                    return null;
-//	                }
-//	            }
-//	        });
-
-//	    	Document doc2 = builder2.parse("https://www.khabaronline.ir/news/1345210/%D8%B3%D9%81%D8%B1-%DA%86%D9%86%D8%AF-%D9%87%D8%B2%D8%A7%D8%B1-%D8%AF%D9%84%D8%A7%D8%B1%DB%8C-%D9%86%D9%85%D8%A7%DB%8C%D9%86%D8%AF%DA%AF%D8%A7%D9%86-%D8%A7%DB%8C%D8%B1%D8%A7%D9%86-%D8%A8%D9%87-%D9%85%D9%82%D8%B1-AFC-%D8%A8%D8%B1%D8%A7%DB%8C-%D8%AE%D8%AF%D8%B4%D9%87-%D8%AF%D8%A7%D8%B1-%D8%B4%D8%AF%D9%86");
-//	    	
-//	    	XPathFactory xPathfactory = XPathFactory.newInstance();
-//	    	XPath xpath = xPathfactory.newXPath();
-//	    	XPathExpression expr = xpath.compile("//Type[@itemprop=\"headline\"]");
-//	    	NodeList nl = (NodeList) expr.evaluate(doc2, XPathConstants.NODESET);
-//	    	System.out.println(nl.item(0).getTextContent());
-		
-		
-		
-		//////////////////////////////////////////////
-			
-//		URL url = new URL("https://www.khabaronline.ir/news/1345210/%D8%B3%D9%81%D8%B1-%DA%86%D9%86%D8%AF-%D9%87%D8%B2%D8%A7%D8%B1-%D8%AF%D9%84%D8%A7%D8%B1%DB%8C-%D9%86%D9%85%D8%A7%DB%8C%D9%86%D8%AF%DA%AF%D8%A7%D9%86-%D8%A7%DB%8C%D8%B1%D8%A7%D9%86-%D8%A8%D9%87-%D9%85%D9%82%D8%B1-AFC-%D8%A8%D8%B1%D8%A7%DB%8C-%D8%AE%D8%AF%D8%B4%D9%87-%D8%AF%D8%A7%D8%B1-%D8%B4%D8%AF%D9%86");
-//		Document doc = Jsoup.parse(url,5000);
-//		Elements body = doc.getElementsByAttributeValue("itemprop", "articleBody");
-//		Elements image = doc.getElementsByAttributeValue("itemprop", "image");
-//		Elements title = doc.getElementsByAttributeValue("itemprop", "headline");
-//		Elements summary = doc.getElementsByAttributeValue("itemprop", "description");
-//		Elements date = doc.getElementsByAttributeValue("itemprop", "datePublished");
-//
-//		System.out.println(body);
-//		System.out.println("---");
-//		System.out.println(image.attr("content"));
-//		System.out.println("---");
-//		System.out.println(title.attr("content"));
-//		System.out.println("---");
-//		System.out.println(summary.attr("content"));
-//		System.out.println("---");
-//		System.out.println(date.attr("content"));
-//		System.out.println("---");
 		
 		new Crawler("static/websits.txt");
 	}
@@ -133,13 +61,18 @@ public class Crawler {
 	ArrayList<String> hostsTable;
 	ArrayList<ArrayList<String>> backQueues = new ArrayList<ArrayList<String>>();
 	int heapIndex;
+	int totalRow;
+	int docNum;
 
 	public Crawler(String path) throws IOException {
 
+		
 		RSSLinks = new ArrayList<RssObject>();
 		crawledLinks = new ArrayList<String>();
 		hostsTable = new ArrayList<String>();
 		heapIndex = 0;
+		totalRow = 0;
+		docNum = 0;
 		readFile(path);
 		for (int i = 0; i < frontNum; i++) {
 			frontQueues.add(new ArrayList<RssObject>());
@@ -150,10 +83,22 @@ public class Crawler {
 			
 			@Override
 			public void run() {
+				System.out.println("priority: ");
 				prioritizer();
 			}
 		};
-		timer.scheduleAtFixedRate( timerTask, 60*1000, 60*1000);
+		
+		Timer timer2 = new Timer();
+		TimerTask timerTask2 = new TimerTask() {
+			
+			@Override
+			public void run() {
+				System.out.println("____________write to file____________");
+				docNum++;
+				WriteToFile("result"+ docNum +".xls");
+			}
+		};
+		
 		while (!isAllQueuesEmpty()) {
 			RssObject rssObject = FrontQueueSelector();
 			ArrayList<String> extractedLinks = extractLinks(rssObject.RssLink);
@@ -169,10 +114,21 @@ public class Crawler {
 			RSSLinks.add(rssObject);
 			
 		}
+		
+		boolean firstTime = true;
+		
+		System.out.println("_________________________________________________________________");
 		while (true) {
 			int index = heapSelect();
 			if (index < 0)
 				try {
+					if(firstTime) {
+						System.out.println("______________first time ended______________");
+						timer.scheduleAtFixedRate( timerTask, 60*1000, 60*1000);
+						WriteToFile("result.xls");
+						firstTime = false;
+						timer2.scheduleAtFixedRate(timerTask2, 5*60*1000, 5*60*1000);
+					}
 					Thread.sleep(1000);
 					while (!isAllQueuesEmpty()) {
 						RssObject rssObject = FrontQueueSelector();
@@ -222,6 +178,7 @@ public class Crawler {
 					heapIndex = 0;
 			}
 		}
+		
 	}
 
 	private void readFile(String path) {
@@ -230,7 +187,7 @@ public class Crawler {
 		try {
 			scanner = new Scanner(file);
 			while (scanner.hasNextLine()) {
-				RSSLinks.add(new RssObject(scanner.nextLine(), 10));
+				RSSLinks.add(new RssObject(scanner.nextLine(), 1));
 			}
 			scanner.close();
 		} catch (FileNotFoundException e) {
@@ -285,6 +242,7 @@ public class Crawler {
 			url = new URL(path);
 			DocumentBuilder builder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
 	    	InputSource src = new InputSource();
+	    	System.out.println(path);
 	    	src.setByteStream(url.openStream());
 	    	org.w3c.dom.Document doc = builder.parse(src);
 	    	String link = "";
@@ -293,9 +251,10 @@ public class Crawler {
 		    	if (link == null)
 		    		break;
 		    	else {
-		    		System.out.println(link);
+//		    		System.out.println(link);
 		    		if (!crawledLinks.contains(link)) {
 		    			links.add(link);
+		    			crawledLinks.add(link);
 		    		}
 		    	}
 			}
@@ -385,34 +344,466 @@ public class Crawler {
 		Instant lastSeen;
 	}
 	
-	private void parsUrl(String path) throws IOException {
-		switch (extractHostName(path)) {
-		case "www.khabaronline.ir":
-			URL url = new URL(path);
-			
-			Document doc = Jsoup.parse(url,10000);
-			Elements body = doc.getElementsByAttributeValue("itemprop", "articleBody");
-			Elements image = doc.getElementsByAttributeValue("itemprop", "image");
-			Elements title = doc.getElementsByAttributeValue("itemprop", "headline");
-			Elements summary = doc.getElementsByAttributeValue("itemprop", "description");
-			Elements date = doc.getElementsByAttributeValue("itemprop", "datePublished");
-
-			System.out.println(body);
-			System.out.println("---");
-			System.out.println(image.attr("content"));
-			System.out.println("---");
-			System.out.println(title.attr("content"));
-			System.out.println("---");
-			System.out.println(summary.attr("content"));
-			System.out.println("---");
-			System.out.println(date.attr("content"));
-			System.out.println("---");
-			break;
-
-		default:
-			break;
+	private void parsUrl(String path) throws UnsupportedEncodingException {
+		for (int i = 0; i < path.length(); i++) {
+			if (path.charAt(i) > 255) {
+				path = path.substring(0, i) + URLEncoder.encode(path.charAt(i)+"", "UTF-8") + path.substring(i+1);
+			}
 		}
+		URL url;
+		try {
+			url = new URL(path);
+			Document doc = Jsoup.parse(url,10000);
+			String pd = "";
+			String t = "";
+			String u = "";
+			String s = "";
+			String c = "";
+			String th = "";
+			switch (extractHostName(path)) {
+			case "www.khabaronline.ir":
+			{
+				Elements publish_date = doc.getElementsByAttributeValue("itemprop", "datePublished");
+				Elements title = doc.getElementsByAttributeValue("itemprop", "headline");
+				Elements summary = doc.getElementsByAttributeValue("itemprop", "description");
+				Elements content = doc.getElementsByAttributeValue("itemprop", "articleBody");
+				Elements thumbnail = doc.getElementsByAttributeValue("itemprop", "image");
 
+				pd = (publish_date.attr("content"));
+				
+				t = (title.attr("content"));
+				
+				u = "www.khabaronline.ir";
+				
+				s = (summary.attr("content"));
+				
+				c = (content).toString();
+				
+				th = (thumbnail.attr("content"));
+				
+			}
+			break;
+				
+			case "www.varzesh3.com":
+			{
+				Elements publish_date = doc.getElementsByAttributeValue("property", "og:article:published_time");
+				Elements title = doc.getElementsByAttributeValue("property", "og:title");
+				Elements summary = doc.getElementsByAttributeValue("property", "og:description");
+				Elements content = doc.getElementsByAttributeValue("class", "col-xs-12 news-page--news-text text-justify");
+				Elements thumbnail = doc.getElementsByAttributeValue("property", "og:image");
+				
+				pd = (publish_date.attr("content"));
+				
+				t = (title.attr("content"));
+				
+				u = "www.varzesh3.com";
+				
+				s = (summary.attr("content"));
+				
+				c = (content).toString();
+				
+				th = (thumbnail.attr("content"));
+				
+			}
+			break;
+				
+			case "www.entekhab.ir":	
+			{
+				Elements publish_date = doc.getElementsByAttributeValue("property", "article:published_time");
+				Elements title = doc.getElementsByAttributeValue("itemprop", "name");
+				Elements summary = doc.getElementsByAttributeValue("itemprop", "description");
+				Elements content = doc.getElementsByAttributeValue("class", "body col-xs-36");
+				Elements thumbnail = doc.getElementsByAttributeValue("itemprop", "image");
+
+				pd = (publish_date.attr("content"));
+				
+				t = (title.attr("content"));
+				
+				u = "www.entekhab.ir";
+				
+				s = (summary.attr("content"));
+				
+				c = (content).toString();
+				
+				th = (thumbnail.attr("content"));
+				
+			}
+			break;
+			
+			case "www.tabnak.ir":	
+			{
+				Elements publish_date = doc.getElementsByAttributeValue("property", "article:published_time");
+				Elements title = doc.getElementsByAttributeValue("itemprop", "name");
+				Elements summary = doc.getElementsByAttributeValue("itemprop", "description");
+				Elements content = doc.getElementsByAttributeValue("class", "body");
+				Elements thumbnail = doc.getElementsByAttributeValue("itemprop", "image");
+
+				pd = (publish_date.attr("content"));
+				
+				t = (title.attr("content"));
+				
+				u = "www.tabnak.ir";
+				
+				s = (summary.attr("content"));
+				
+				c = (content).toString();
+				
+				th = (thumbnail.attr("content"));
+				
+			}
+			break;
+			
+			case "www.mashreghnews.ir":
+			{
+				Elements publish_date = doc.getElementsByAttributeValue("itemprop", "datePublished");
+				Elements title = doc.getElementsByAttributeValue("itemprop", "headline");
+				Elements summary = doc.getElementsByAttributeValue("itemprop", "description");
+				Elements content = doc.getElementsByAttributeValue("itemprop", "articleBody");
+				Elements thumbnail = doc.getElementsByAttributeValue("itemprop", "image");
+
+				pd = (publish_date.attr("content"));
+				
+				t = (title.attr("content"));
+				
+				u = "www.mashreghnews.ir";
+				
+				s = (summary.attr("content"));
+				
+				c = (content).toString();
+				
+				th = (thumbnail.attr("content"));
+				
+			}
+			break;
+			
+			case "tn.ai":
+			{
+				Elements publish_date = doc.getElementsByAttributeValue("type", "application/ld+json");
+				Elements title = doc.getElementsByAttributeValue("property", "og:title");
+				Elements summary = doc.getElementsByAttributeValue("property", "og:description");
+				Elements content = doc.getElementsByAttributeValue("class", "story");
+				Elements thumbnail = doc.getElementsByAttributeValue("property", "og:image");
+				
+				pd = (publish_date.attr("datePublished"));
+				
+				t = (title.attr("content"));
+				
+				u = "tn.ai";
+				
+				s = (summary.attr("content"));
+				
+				c = (content).toString();
+				
+				th = (thumbnail.attr("content"));
+				
+			}
+			break;
+			
+			case "www.alef.ir":
+			{
+				Elements publish_date = doc.getElementsByAttributeValue("property", "og:article:published_time");
+				Elements title = doc.getElementsByAttributeValue("property", "og:title");
+				Elements summary = doc.getElementsByAttributeValue("property", "og:description");
+				Elements content = doc.getElementsByAttributeValue("class", "post-content clearfix mb-3");
+				Elements thumbnail = doc.getElementsByAttributeValue("property", "og:image");
+				
+				pd = (publish_date.attr("content"));
+				
+				t = (title.attr("content"));
+				
+				u = "www.alef.ir";
+				
+				s = (summary.attr("content"));
+				
+				c = (content).toString();
+				
+				th = (thumbnail.attr("content"));
+				
+			}
+			break;
+
+			case "www.farsnews.ir":	
+			{
+				Elements publish_date = doc.getElementsByAttributeValue("id", "StoryPublishDate");
+				Elements title = doc.getElementsByAttributeValue("itemprop", "name");
+				Elements summary = doc.getElementsByAttributeValue("itemprop", "description");
+				Elements content = doc.getElementsByAttributeValue("class", "body");
+				Elements thumbnail = doc.getElementsByAttributeValue("itemprop", "image");
+
+				pd = (publish_date.attr("value"));
+				
+				t = (title.attr("content"));
+				
+				u = "www.farsnews.ir";
+				
+				s = (summary.attr("content"));
+				
+				c = (content).toString();
+				
+				th = (thumbnail.attr("content"));
+				
+			}
+			break;
+			
+			case "www.yjc.ir":	
+			{
+				Elements publish_date = doc.getElementsByAttributeValue("property", "article:published_time");
+				Elements title = doc.getElementsByAttributeValue("itemprop", "name");
+				Elements summary = doc.getElementsByAttributeValue("itemprop", "description");
+				Elements content = doc.getElementsByAttributeValue("class", "body");
+				Elements thumbnail = doc.getElementsByAttributeValue("class", "image_btn");
+
+				pd = (publish_date.attr("content"));
+				
+				t = (title.attr("content"));
+				
+				u = "www.yjc.ir";
+				
+				s = (summary.attr("content"));
+				
+				c = (content).toString();
+				
+				th = (thumbnail.attr("src"));
+				
+			}
+			break;
+			
+			case "www.isna.ir":	
+			{
+				Elements publish_date = doc.getElementsByAttributeValue("itemprop", "datePublished");
+				Elements title = doc.getElementsByAttributeValue("itemprop", "name");
+				Elements summary = doc.getElementsByAttributeValue("itemprop", "description");
+				Elements content = doc.getElementsByAttributeValue("itemprop", "articleBody");
+				Elements thumbnail = doc.getElementsByAttributeValue("itemprop", "image");
+
+				pd = (publish_date.attr("content"));
+				
+				t = (title.attr("content"));
+				
+				u = "www.isna.ir";
+				
+				s = (summary.attr("content"));
+				
+				c = (content).toString();
+				
+				th = (thumbnail.attr("content"));
+				
+			}
+			break;
+			
+			case "90tv.ir":
+			{
+//				Elements publish_date = doc.getElementsByAttributeValue("property", "og:article:published_time");
+				Elements title = doc.getElementsByAttributeValue("property", "og:title");
+				Elements summary = doc.getElementsByAttributeValue("property", "og:description");
+				Elements content = doc.getElementsByAttributeValue("class", "c-news__body");
+				Elements thumbnail = doc.getElementsByAttributeValue("class", "img-fluid");
+				
+//				pd = (publish_date.attr("content"));
+				
+				t = (title.attr("content"));
+				
+				u = "90tv.ir";
+				
+				s = (summary.attr("content"));
+				
+				c = (content).toString();
+				
+				th = (thumbnail.attr("src"));
+				
+			}
+			break;
+			
+			case "www.mehrnews.com":	
+			{
+				Elements publish_date = doc.getElementsByAttributeValue("itemprop", "datePublished");
+				Elements title = doc.getElementsByAttributeValue("itemprop", "name");
+				Elements summary = doc.getElementsByAttributeValue("itemprop", "description");
+				Elements content = doc.getElementsByAttributeValue("itemprop", "articleBody");
+				Elements thumbnail = doc.getElementsByAttributeValue("itemprop", "image");
+
+				pd = (publish_date.attr("content"));
+				
+				t = (title.attr("content"));
+				
+				u = "www.mehrnews.com";
+				
+				s = (summary.attr("content"));
+				
+				c = (content).toString();
+				
+				th = (thumbnail.attr("content"));
+				
+			}
+			break;
+			
+			case "www.irna.ir":	
+			{
+				Elements publish_date = doc.getElementsByAttributeValue("itemprop", "datePublished");
+				Elements title = doc.getElementsByAttributeValue("itemprop", "name");
+				Elements summary = doc.getElementsByAttributeValue("itemprop", "description");
+				Elements content = doc.getElementsByAttributeValue("itemprop", "articleBody");
+				Elements thumbnail = doc.getElementsByAttributeValue("itemprop", "image");
+
+				pd = (publish_date.attr("content"));
+				
+				t = (title.attr("content"));
+				
+				u = "www.irna.ir";
+				
+				s = (summary.attr("content"));
+				
+				c = (content).toString();
+				
+				th = (thumbnail.attr("content"));
+				
+			}
+			break;
+			
+			case "www.asriran.com":	
+			{
+				Elements publish_date = doc.getElementsByAttributeValue("property", "article:published_time");
+				Elements title = doc.getElementsByAttributeValue("itemprop", "name");
+				Elements summary = doc.getElementsByAttributeValue("itemprop", "description");
+				Elements content = doc.getElementsByAttributeValue("class", "body");
+				Elements thumbnail = doc.getElementsByAttributeValue("class", "image_btn");
+
+				pd = (publish_date.attr("content"));
+				
+				t = (title.attr("content"));
+				
+				u = "www.shafaf.ir";
+				
+				s = (summary.attr("content"));
+				
+				c = (content).toString();
+				
+				th = (thumbnail.attr("src"));
+				
+			}
+			break;
+			
+			case "www.shafaf.ir":	
+			{
+				Elements publish_date = doc.getElementsByAttributeValue("property", "article:published_time");
+				Elements title = doc.getElementsByAttributeValue("itemprop", "name");
+				Elements summary = doc.getElementsByAttributeValue("itemprop", "description");
+				Elements content = doc.getElementsByAttributeValue("class", "body");
+				Elements thumbnail = doc.getElementsByAttributeValue("itemprop", "image");
+
+				pd = (publish_date.attr("content"));
+				
+				t = (title.attr("content"));
+				
+				u = "";
+				
+				s = (summary.attr("content"));
+				
+				c = (content).toString();
+				
+				th = (thumbnail.attr("content"));
+				
+			}
+			break;
+			
+			case "fararu.com":	
+			{
+				Elements publish_date = doc.getElementsByAttributeValue("property", "article:published_time");
+				Elements title = doc.getElementsByAttributeValue("itemprop", "name");
+				Elements summary = doc.getElementsByAttributeValue("itemprop", "description");
+				Elements content = doc.getElementsByAttributeValue("class", "body dir-rtl");
+				Elements thumbnail = doc.getElementsByAttributeValue("itemprop", "image");
+
+				pd = (publish_date.attr("content"));
+				
+				t = (title.attr("content"));
+				
+				u = "fararu.com";
+				
+				s = (summary.attr("content"));
+				
+				c = (content).toString();
+				
+				th = (thumbnail.attr("content"));
+				
+			}
+			break;
+			
+			case "www.rajanews.com":
+			{
+				Elements publish_date = doc.getElementsByAttributeValue("name", "dcterms.date");
+				Elements title = doc.getElementsByAttributeValue("property", "og:title");
+				Elements summary = doc.getElementsByAttributeValue("property", "og:description");
+				Elements content = doc.getElementsByAttributeValue("class", "body");
+				Elements thumbnail = doc.getElementsByAttributeValue("property", "og:image");
+				
+				pd = (publish_date.attr("content"));
+				
+				t = (title.attr("content"));
+				
+				u = "www.rajanews.com";
+				
+				s = (summary.attr("content"));
+				
+				c = (content).toString();
+				
+				th = (thumbnail.attr("content"));
+				
+			}
+			break;
+			
+			default:
+				break;
+			}
+			
+			addToExcel(totalRow, 0, pd);
+			addToExcel(totalRow, 1, t);
+			addToExcel(totalRow, 2, u);
+			addToExcel(totalRow, 3, s);
+			addToExcel(totalRow, 4, c);
+			addToExcel(totalRow, 5, th);
+			totalRow++;
+			System.out.println(totalRow);
+			
+
+		} catch (MalformedURLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+	}
+	
+	HSSFWorkbook myWorkBook = new HSSFWorkbook();
+	HSSFSheet mySheet = myWorkBook.createSheet();
+	
+	private void addToExcel(int row, int col, String value) {
+		if (value.length() > 30000) {
+			value = value.substring(0, 30000);
+		}
+		HSSFRow myRow = mySheet.getRow(row);
+
+	    if (myRow == null)
+	        myRow = mySheet.createRow(row);
+
+	    HSSFCell myCell = myRow.createCell(col);
+	    myCell.setCellValue(value);
+	}
+	
+	private void WriteToFile(String dest) {
+		try {
+	        FileOutputStream out = new FileOutputStream(dest);
+	        myWorkBook.write(out);
+	        out.close();
+			totalRow=0;
+			myWorkBook = new HSSFWorkbook();
+			mySheet = myWorkBook.createSheet();
+	        System.out.println("writed");
+	    } catch (Exception e) {
+	        e.printStackTrace();
+	    }
 	}
 
 }
